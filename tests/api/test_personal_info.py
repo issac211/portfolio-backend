@@ -4,7 +4,7 @@ def test_get_profile_not_found(client):
     assert "not found" in response.json()["detail"].lower()
 
 
-def test_upsert_profile_create(client):
+def test_upsert_profile_create(admin_client):
     # Using Fake/Mock Data instead of real PII
     payload = {
         "first_name": "John",
@@ -12,7 +12,7 @@ def test_upsert_profile_create(client):
         "bio": "Anonymous Software Developer testing the system.",
         "birth_date": "1990-01-01",
     }
-    response = client.put("/api/v1/profile/", json=payload)
+    response = admin_client.put("/api/v1/profile/", json=payload)
 
     assert response.status_code == 200
     data = response.json()
@@ -21,9 +21,9 @@ def test_upsert_profile_create(client):
     assert "id" in data
 
 
-def test_upsert_profile_update(client):
+def test_upsert_profile_update(admin_client):
     # 1. Create initial anonymous profile
-    client.put(
+    admin_client.put(
         "/api/v1/profile/",
         json={"first_name": "Jane", "last_name": "Smith", "bio": "Initial Mock Bio"},
     )
@@ -31,10 +31,21 @@ def test_upsert_profile_update(client):
     # 2. Update the bio
     update_payload = {"bio": "Updated Mock Bio"}
 
-    response = client.put("/api/v1/profile/", json=update_payload)
+    response = admin_client.put("/api/v1/profile/", json=update_payload)
     assert response.status_code == 200
     data = response.json()
 
     # Verify the bio changed, but the names stayed the same
     assert data["bio"] == "Updated Mock Bio"
     assert data["first_name"] == "Jane"
+
+
+def test_upsert_profile_create_unauthorized(client):
+    payload = {
+        "first_name": "Hacked",
+        "last_name": "Hacked",
+        "bio": "Hacked",
+        "birth_date": "1990-01-01",
+    }
+    response = client.put("/api/v1/profile/", json=payload)
+    assert response.status_code == 401

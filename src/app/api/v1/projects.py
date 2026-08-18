@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api import get_project_service
+from app.api import get_current_admin, get_project_service
 from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services import ProjectService
 
@@ -26,7 +26,9 @@ def get_project(
 
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
-    project_in: ProjectCreate, service: ProjectService = Depends(get_project_service)
+    project_in: ProjectCreate,
+    service: ProjectService = Depends(get_project_service),
+    current_admin: str = Depends(get_current_admin),
 ):
     return service.create_project(project_in)
 
@@ -36,6 +38,7 @@ def update_project(
     project_id: int,
     project_in: ProjectUpdate,
     service: ProjectService = Depends(get_project_service),
+    current_admin: str = Depends(get_current_admin),
 ):
     # Using PATCH instead of PUT because fields in ProjectUpdate are optional
     project = service.update_project(project_id, project_in)
@@ -48,7 +51,9 @@ def update_project(
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
-    project_id: int, service: ProjectService = Depends(get_project_service)
+    project_id: int,
+    service: ProjectService = Depends(get_project_service),
+    current_admin: str = Depends(get_current_admin),
 ):
     success = service.delete_project(project_id)
     if not success:

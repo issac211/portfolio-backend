@@ -1,3 +1,4 @@
+from .auth import Token
 from .personal_info import (
     PersonalInfoBase,
     PersonalInfoCreate,

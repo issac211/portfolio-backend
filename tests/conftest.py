@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api import get_db
-from app.core import Base
+from app.core import Base, settings
 from app.main import app
 
 # CRITICAL: We must import the models here so SQLAlchemy's Base knows about them
@@ -54,3 +54,20 @@ def client(test_db):
 
     # Clean up overrides after the test finishes
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def admin_client(client):
+    """
+    Logs in using the hardcoded test password and returns an authorized client.
+    """
+    response = client.post(
+        "/api/v1/auth/login",
+        data={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD},
+    )
+    assert response.status_code == 200, "Failed to authenticate test client"
+    token = response.json()["access_token"]
+
+    # Set the authorization header for all future requests using this client
+    client.headers = {"Authorization": f"Bearer {token}"}
+    return client

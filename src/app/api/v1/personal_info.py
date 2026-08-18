@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api import get_personal_info_service
+from app.api import get_current_admin, get_personal_info_service
 from app.schemas import PersonalInfoCreate, PersonalInfoResponse, PersonalInfoUpdate
 from app.services import PersonalInfoService
 
@@ -22,6 +22,7 @@ def get_profile(service: PersonalInfoService = Depends(get_personal_info_service
 def upsert_profile(
     info_in: PersonalInfoCreate | PersonalInfoUpdate,
     service: PersonalInfoService = Depends(get_personal_info_service),
+    current_admin: str = Depends(get_current_admin),
 ):
     """
     Creates the profile if it doesn't exist, updates it if it does.
