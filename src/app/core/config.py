@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
 
+    # Environment flag (development / production)
+    ENVIRONMENT: str = "development"
+
+    # --- File Upload Settings ---
+    MEDIA_ROOT: str = "uploads"  # Physical directory on disk
+    MEDIA_URL: str = "/uploads"  # URL prefix for the web
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

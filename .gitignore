@@ -15,3 +15,7 @@ wheels/
 # Database
 *.db
 *.sqlite3
+
+# Uploads File
+uploads/
+uploads/*

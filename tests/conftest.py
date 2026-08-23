@@ -1,3 +1,5 @@
+import tempfile
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -71,3 +73,20 @@ def admin_client(client):
     # Set the authorization header for all future requests using this client
     client.headers = {"Authorization": f"Bearer {token}"}
     return client
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_test_uploads_dir():
+    """
+    Creates a temporary directory for file uploads during tests.
+    Only overrides MEDIA_ROOT. MEDIA_URL stays '/uploads' for consistent API responses.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Override the physical path
+        original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = temp_dir
+
+        yield
+
+        # Restore the physical path
+        settings.MEDIA_ROOT = original_media_root

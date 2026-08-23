@@ -1,3 +1,6 @@
+from app.core import settings
+
+
 def test_get_profile_not_found(client):
     response = client.get("/api/v1/profile/")
     assert response.status_code == 404
@@ -49,3 +52,23 @@ def test_upsert_profile_create_unauthorized(client):
     }
     response = client.put("/api/v1/profile/", json=payload)
     assert response.status_code == 401
+
+
+def test_upload_profile_image(admin_client):
+    # Ensure profile exists first
+    admin_client.put(
+        "/api/v1/profile/", json={"first_name": "Test", "last_name": "User"}
+    )
+
+    # Mock a file upload (simulate an image file in memory)
+    file_content = b"fake image bytes"
+    # Format: {"field_name": ("filename", file_content, "content_type")}
+    files = {"file": ("test_pic.jpg", file_content, "image/jpeg")}
+
+    response = admin_client.post("/api/v1/profile/upload-image", files=files)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["image_url"] is not None
+    assert f"{settings.MEDIA_URL}/profile/" in data["image_url"]
+    assert data["image_url"].endswith(".jpg")

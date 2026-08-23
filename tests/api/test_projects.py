@@ -1,3 +1,6 @@
+from app.core import settings
+
+
 def test_get_empty_projects(client):
     response = client.get("/api/v1/projects/")
     assert response.status_code == 200
@@ -78,3 +81,43 @@ def test_delete_project(admin_client):
 def test_create_project_unauthorized(client):
     response = client.post("/api/v1/projects/", json={"title": "Hacked"})
     assert response.status_code == 401
+
+
+def test_upload_project_image(admin_client):
+    """Test successful image upload for an existing project."""
+    # Create a project first so we have a valid ID
+    create_res = admin_client.post(
+        "/api/v1/projects/",
+        json={
+            "title": "Image Upload Test Project",
+            "description": "Testing file uploads",
+        },
+    )
+    project_id = create_res.json()["id"]
+
+    # Mock a file upload (simulate a PNG file in memory)
+    file_content = b"fake project image bytes"
+    files = {"file": ("project_pic.png", file_content, "image/png")}
+
+    # Send the upload request
+    response = admin_client.post(
+        f"/api/v1/projects/{project_id}/upload-image", files=files
+    )
+
+    # Assertions
+    assert response.status_code == 200
+    data = response.json()
+    assert data["image_url"] is not None
+    assert f"{settings.MEDIA_URL}/projects/" in data["image_url"]
+    assert data["image_url"].endswith(".png")
+
+
+def test_upload_project_image_not_found(admin_client):
+    """Test uploading an image to a non-existent project returns 404."""
+    files = {"file": ("test.jpg", b"fake bytes", "image/jpeg")}
+
+    # Send request to an ID that we know doesn't exist (e.g., 9999)
+    response = admin_client.post("/api/v1/projects/9999/upload-image", files=files)
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()

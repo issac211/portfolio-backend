@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api import get_current_admin, get_personal_info_service
 from app.schemas import PersonalInfoCreate, PersonalInfoResponse, PersonalInfoUpdate
-from app.services import PersonalInfoService
+from app.services import PersonalInfoService, save_upload_file
 
 router = APIRouter(prefix="/profile", tags=["Personal Info"])
 
@@ -18,13 +18,34 @@ def get_profile(service: PersonalInfoService = Depends(get_personal_info_service
     return info
 
 
-@router.put("/", response_model=PersonalInfoResponse)
+@router.put(
+    "/", response_model=PersonalInfoResponse, dependencies=[Depends(get_current_admin)]
+)
 def upsert_profile(
     info_in: PersonalInfoCreate | PersonalInfoUpdate,
     service: PersonalInfoService = Depends(get_personal_info_service),
-    current_admin: str = Depends(get_current_admin),
 ):
     """
     Creates the profile if it doesn't exist, updates it if it does.
     """
     return service.upsert_personal_info(info_in)
+
+
+@router.post(
+    "/upload-image",
+    response_model=PersonalInfoResponse,
+    dependencies=[Depends(get_current_admin)],
+)
+def upload_profile_image(
+    # File(...) tells FastAPI this must come as multipart/form-data
+    file: UploadFile = File(...),
+    service: PersonalInfoService = Depends(get_personal_info_service),
+):
+    """
+    Uploads an image, saves it, and updates the profile's image_url.
+    """
+    current_profile = service.get_personal_info()
+    old_url = current_profile.image_url if current_profile else None
+    file_url = save_upload_file(file, "profile", old_file_url=old_url)
+    update_data = PersonalInfoUpdate(image_url=file_url)
+    return service.upsert_personal_info(update_data)
