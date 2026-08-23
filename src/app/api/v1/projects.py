@@ -94,5 +94,4 @@ def upload_project_image(
     old_url = project.image_url
     file_url = save_upload_file(file, "projects", old_file_url=old_url)
 
-    update_data = ProjectUpdate(image_url=file_url)
-    return service.update_project(project_id, update_data)
+    return service.update_image(project_id, file_url)

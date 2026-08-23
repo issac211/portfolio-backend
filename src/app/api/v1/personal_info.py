@@ -47,5 +47,4 @@ def upload_profile_image(
     current_profile = service.get_personal_info()
     old_url = current_profile.image_url if current_profile else None
     file_url = save_upload_file(file, "profile", old_file_url=old_url)
-    update_data = PersonalInfoUpdate(image_url=file_url)
-    return service.upsert_personal_info(update_data)
+    return service.update_image(file_url)

@@ -4,10 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., min_length=1, max_length=2000)
-
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
-    image_url: str | None = None
 
     tech_stack: list[str] | None = Field(
         default=None, description="List of technologies used"
@@ -24,13 +22,13 @@ class ProjectUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=2000)
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
-    image_url: str | None = None
     tech_stack: list[str] | None = None
     display_order: int | None = Field(default=None, ge=0)
 
 
 class ProjectResponse(ProjectBase):
     id: int
+    image_url: str | None = None
 
     # Allows Pydantic to read data from SQLAlchemy ORM models
     model_config = ConfigDict(from_attributes=True)

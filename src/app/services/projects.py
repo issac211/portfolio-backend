@@ -95,3 +95,14 @@ class ProjectService:
         self.db.delete(project)
         self.db.commit()
         return True
+
+    def update_image(self, project_id: int, image_url: str) -> Project | None:
+        """Directly updates the image_url in the database."""
+        project = self.get_project_by_id(project_id)
+        if not project:
+            return None
+
+        project.image_url = image_url
+        self.db.commit()
+        self.db.refresh(project)
+        return project

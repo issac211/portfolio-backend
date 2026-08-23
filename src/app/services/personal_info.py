@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import PersonalInfo
@@ -36,3 +37,18 @@ class PersonalInfoService:
         self.db.commit()
         self.db.refresh(info)
         return info
+
+    def update_image(self, image_url: str) -> PersonalInfo:
+        """Directly updates the profile image_url."""
+        profile = self.get_personal_info()
+        if not profile:
+            # We enforce that a text profile must exist before uploading an image
+            raise HTTPException(
+                status_code=400,
+                detail="Please create a profile first before uploading an image.",
+            )
+
+        profile.image_url = image_url
+        self.db.commit()
+        self.db.refresh(profile)
+        return profile

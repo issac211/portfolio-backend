@@ -8,7 +8,6 @@ class PersonalInfoBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=50)
     birth_date: date | None = None
     bio: str | None = Field(default=None, max_length=2000)
-    image_url: str | None = None
 
 
 class PersonalInfoCreate(PersonalInfoBase):
@@ -20,11 +19,11 @@ class PersonalInfoUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=50)
     birth_date: date | None = None
     bio: str | None = Field(default=None, max_length=2000)
-    image_url: str | None = None
 
 
 class PersonalInfoResponse(PersonalInfoBase):
     id: int
+    image_url: str | None = None
 
     # Allows Pydantic to read data from SQLAlchemy ORM models
     model_config = ConfigDict(from_attributes=True)
