@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "uploads"  # Physical directory on disk
     MEDIA_URL: str = "/uploads"  # URL prefix for the web
 
+    # NEW: 5 Megabytes (5 * 1024 * 1024 bytes)
+    MAX_IMAGE_SIZE_BYTES: int = 5242880
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

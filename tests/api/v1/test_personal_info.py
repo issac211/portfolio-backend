@@ -72,3 +72,15 @@ def test_upload_profile_image(admin_client):
     assert data["image_url"] is not None
     assert f"{settings.MEDIA_URL}/profile/" in data["image_url"]
     assert data["image_url"].endswith(".jpg")
+
+
+def test_upload_profile_image_too_large(admin_client):
+    # Create a fake file that is just 1 byte larger than the maximum allowed
+    oversized_content = b"0" * (settings.MAX_IMAGE_SIZE_BYTES + 1)
+    files = {"file": ("huge_pic.jpg", oversized_content, "image/jpeg")}
+
+    response = admin_client.post("/api/v1/profile/upload-image", files=files)
+
+    # Must be 413 Payload Too Large
+    assert response.status_code == 413
+    assert "too large" in response.json()["detail"].lower()

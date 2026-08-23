@@ -42,7 +42,14 @@ def save_upload_file(
     """
     Saves an uploaded file safely and returns the relative URL path.
     """
-    # 1. Validate Extension
+    # Validate File Size
+    if upload_file.size and upload_file.size > settings.MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"File is too large. Maximum allowed size is {settings.MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB.",
+        )
+
+    # Validate Extension
     extension = Path(upload_file.filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
