@@ -19,3 +19,7 @@ wheels/
 # Uploads File
 uploads/
 uploads/*
+
+# vscode settings
+.vscode/
+.vscode/*
