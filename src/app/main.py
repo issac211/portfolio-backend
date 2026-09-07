@@ -15,6 +15,7 @@ app = FastAPI(title=settings.PROJECT_NAME)
 # Define the frontend origins that are allowed to make requests
 origins = [
     "http://localhost:3000",  # React default port
+    "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",  # Vite default port
     "https://myfrontend.com",  # Production domain
 ]
