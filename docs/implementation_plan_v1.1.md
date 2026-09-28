@@ -1,0 +1,410 @@
+# Backend Implementation Plan — v1.1
+
+
+## Architectural Decisions (v1.1)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Database engine | PostgreSQL (via `psycopg2-binary`) | Production-grade concurrency, JSONB support, Full-Text Search; replaces SQLite. Synchronous SQLAlchemy (`Session`) strictly requires a synchronous driver; `asyncpg` is excluded. |
+| Migration tooling | Alembic (existing) | Already integrated; generate new revisions for schema changes |
+| Profile soft-delete strategy | `is_active` boolean column | Preserves data integrity; avoids cascading physical deletes on a singleton entity |
+| Project description split | Two columns: `summary` (VARCHAR) + `content` (TEXT) | Supports card-level scanning vs. detail-page deep dives without over-fetching |
+| Image deletion approach | Dedicated DELETE endpoints that unlink file + null DB column | Clean separation; reuses existing `upload.py` file-handling utilities |
+| Profile data expansion | Add columns to `PersonalInfo` model | Single source of truth for hero/footer/navbar marketing data; eliminates frontend hardcoding |
+| ETL migration script | One-time Python script (SQLite → PostgreSQL) | Preserves MVP data during database transition |
+| Domain vocabulary refactoring | Rename `tech_stack_csv` → `tags_csv` (model) and `tech_stack` → `tags` (schemas/API) | Generalizes the concept beyond technologies to include status labels ("WIP", "Open Source") and categories |
+| Availability indicator | `status_indicator` String column with semantic values (`success`, `warning`, `error`, `neutral`) | Drives the UI dot color/animation dynamically from the DB; avoids boolean flags that can't express multiple states |
+| API contract-driven development | Export/update `api-contract.json` (OpenAPI) after every schema phase, **before** frontend work begins | Frontend has a machine-readable, reliable source of truth; prevents type drift between backend schemas and TS interfaces |
+
+---
+
+## Current Project State (Baseline v1.0)
+
+```
+backend/
+├── .env
+├── .env.example
+├── .python-version
+├── alembic.ini
+├── GEMINI.md
+├── portfolio.db                          # SQLite database (v1.0)
+├── pyproject.toml
+├── README.md
+├── uv.lock
+├── alembic/
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions/
+│       └── a999514ee9b4_initial_tables.py
+├── src/app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── dependencies.py
+│   │   └── v1/
+│   │       ├── auth.py
+│   │       ├── personal_info.py
+│   │       └── projects.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── security.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── personal_info.py
+│   │   └── projects.py
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── personal_info.py
+│   │   └── projects.py
+│   └── services/
+│       ├── __init__.py
+│       ├── personal_info.py
+│       ├── projects.py
+│       └── upload.py
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   └── api/
+│       ├── __init__.py
+│       └── v1/
+│           ├── __init__.py
+│           ├── test_personal_info.py
+│           └── test_projects.py
+└── uploads/
+    ├── profile/
+    └── projects/
+```
+
+### Current `PersonalInfo` Schema (v1.0)
+
+| Column | Type | Nullable |
+|---|---|---|
+| `id` | Integer (PK) | No |
+| `first_name` | String(50) | No |
+| `last_name` | String(50) | No |
+| `birth_date` | Date | Yes |
+| `bio` | Text | Yes |
+| `image_url` | String(255) | Yes |
+
+### Current `Project` Schema (v1.0)
+
+| Column | Type | Nullable |
+|---|---|---|
+| `id` | Integer (PK) | No |
+| `title` | String(100) | No |
+| `description` | Text | No |
+| `github_url` | String(255) | Yes |
+| `live_url` | String(255) | Yes |
+| `image_url` | String(255) | Yes |
+| `tech_stack_csv` | String(255) | Yes |
+| `display_order` | Integer | No (default 0) |
+
+### Current API Endpoints (v1.0)
+
+| Method | Path | Auth |
+|---|---|---|
+| `GET` | `/api/profile/` | Public |
+| `PUT` | `/api/profile/` | Admin |
+| `POST` | `/api/profile/upload-image` | Admin |
+| `GET` | `/api/projects/` | Public |
+| `GET` | `/api/projects/{id}` | Public |
+| `POST` | `/api/projects/` | Admin |
+| `PATCH` | `/api/projects/{id}` | Admin |
+| `DELETE` | `/api/projects/{id}` | Admin |
+| `POST` | `/api/projects/{id}/upload-image` | Admin |
+| `POST` | `/api/auth/login` | Public |
+
+---
+
+## Key Implementation Details
+
+> [!IMPORTANT]
+> **Database Migration (SQLite → PostgreSQL):** The `DATABASE_URL` in `config.py` currently defaults to `sqlite:///portfolio.db`. After PostgreSQL provisioning, update `.env` with the new connection string (e.g., `postgresql+psycopg2://user:pass@host:5432/portfolio`). The `connect_args` block in `database.py` already conditionally applies `check_same_thread` only for SQLite — no code breakage expected.
+
+> [!IMPORTANT]
+> **`PersonalInfo` Model Expansion — New Columns:**
+> ```
+> hero_title        : String(200), nullable=True
+> availability_status: String(100), nullable=True
+> short_bio         : Text, nullable=True
+> long_bio          : Text, nullable=True
+> github_url        : String(255), nullable=True
+> linkedin_url      : String(255), nullable=True
+> email             : String(255), nullable=True
+> ```
+> The existing `bio` column will be **retained as-is** during the transition. `short_bio` and `long_bio` provide the new semantic split. Decide during implementation whether to deprecate `bio` or map it to `long_bio`.
+
+> [!IMPORTANT]
+> **`PersonalInfo` Model — `status_indicator` Column:**
+> ```
+> status_indicator : String(20), nullable=True, default="neutral"
+> ```
+> Allowed semantic values: `success` | `warning` | `error` | `neutral`. This is stored as a plain String (not a DB-level Enum) to avoid Alembic migration complexity with PostgreSQL enum types. Validation is enforced at the **Pydantic schema level** using `Literal["success", "warning", "error", "neutral"]` or a custom validator. The frontend maps these values to Tailwind dot classes (e.g., `success` → pulsing green, `error` → solid red). Do NOT use a boolean flag — the four-state design is intentional.
+
+> [!IMPORTANT]
+> **API Contract-Driven Development:**
+> After completing database + schema changes in each phase (Phases 2, 3, 4), the backend **must** export/regenerate the OpenAPI spec before frontend work begins:
+> ```bash
+> # Option A: Use FastAPI's built-in export
+> curl http://localhost:8000/openapi.json > ../frontend/api-contract.json
+> # Option B: Generate via script if the server isn't running
+> uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi()))" > ../frontend/api-contract.json
+> ```
+> This file (`frontend/api-contract.json`) serves as the single source of truth for the frontend team. The frontend should validate its TypeScript interfaces against this contract.
+
+> [!IMPORTANT]
+> **`Project` Model — Description Split (Safe Column Split - Zero NOT NULL Errors):**
+> Splitting `description` into `summary` (VARCHAR(300), NOT NULL) and `content` (TEXT, nullable) requires a strict 5-step zero-downtime migration sequence in Alembic to prevent NOT NULL constraint violations on existing rows:
+> 1. **Add `summary` as nullable:** `op.add_column('projects', sa.Column('summary', sa.String(length=300), nullable=True))`
+> 2. **Execute Data Migration:** `op.execute("UPDATE projects SET summary = LEFT(description, 300)")` to backfill existing data safely.
+> 3. **Add `content` column:** `op.add_column('projects', sa.Column('content', sa.Text(), nullable=True))`
+> 4. **Enforce NOT NULL constraint:** `op.alter_column('projects', 'summary', nullable=False)` once all rows are guaranteed populated.
+> 5. **Drop obsolete column:** `op.drop_column('projects', 'description')`
+
+> [!NOTE]
+> **Profile Soft Delete & Singleton Upsert Logic:**
+> - Add `is_active: Mapped[bool] = mapped_column(default=True)` to `PersonalInfo`.
+> - The `DELETE /api/profile` endpoint sets `is_active = False`.
+> - The `GET /api/profile/` endpoint must filter by `is_active == True`.
+> - **Singleton Reactivation:** Because `PersonalInfo` is a singleton, if a Profile was soft-deleted (`is_active = False`) and the Admin performs a `PUT /api/profile/` (Upsert), the logic must reactivate the existing record (`is_active = True`) and update it, rather than attempting to insert a new row which would cause a Primary Key / Singleton violation.
+
+> [!NOTE]
+> **Image Deletion Endpoints (Resilient Deletion Order):** Both `DELETE /api/profile/image` and `DELETE /api/projects/{id}/image` must enforce transactional safety against race conditions and failures:
+> 1. The DB transaction (`image_url = NULL`) must be committed FIRST.
+> 2. The physical file `unlink()` in `services/upload.py` is executed ONLY AFTER the database commit succeeds, to prevent dangling pointers in case of a DB rollback.
+> 3. If file unlinking fails post-commit (e.g., file not found or I/O error), log a warning rather than rolling back the database transaction (orphaned disk files can be swept via background cleanup, whereas dangling DB pointers cause user-facing broken images and 404s).
+> 4. Return `204 No Content` on success.
+
+> [!NOTE]
+> **Domain Vocabulary Refactoring — `tech_stack` → `tags` (Alembic Rename Safety):**
+> - **Model:** Rename `tech_stack_csv` → `tags_csv` in the `Project` SQLAlchemy model. The underlying storage mechanism (comma-separated string) remains unchanged in v1.1.
+> - **Schemas/API:** Rename `tech_stack: list[str] | None` → `tags: list[str] | None` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, and `ProjectResponse`. The CSV ↔ list serialization logic in the service layer must update its field references accordingly.
+> - **Alembic Rename Safety:** Alembic's `--autogenerate` does NOT detect column renames by default; it generates a destructive `op.drop_column` followed by `op.add_column`, leading to silent data loss. The migration MUST explicitly use:
+>   ```python
+>   op.alter_column('projects', 'tech_stack_csv', new_column_name='tags_csv')
+>   ```
+> - **Rationale:** "Tags" generalizes the concept to include project status ("WIP", "Open Source"), categories, and technologies under a single vocabulary.
+
+> [!NOTE]
+> **PostgreSQL Unlocks (Future-Proofing):** After migration, `tags_csv` (comma-separated hack) can eventually be replaced with a native `JSONB` or `ARRAY(String)` column. This is **out of scope** for v1.1 but should be noted as a v1.2+ opportunity.
+
+---
+
+## Target Folder Structure (v1.1)
+
+```
+backend/
+├── .env                                  [UPDATE] — PostgreSQL DATABASE_URL
+├── .env.example                          [UPDATE] — document new env vars
+├── .python-version
+├── alembic.ini                           [UPDATE] — PostgreSQL connection if hardcoded
+├── GEMINI.md                             [UPDATE] — SOP Section 7 file reference
+├── pyproject.toml                        [UPDATE] — add psycopg2-binary dependency
+├── README.md
+├── uv.lock                              [UPDATE] — lockfile refresh
+├── alembic/
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions/
+│       ├── a999514ee9b4_initial_tables.py
+│       ├── xxxx_expand_personal_info.py  [NEW] — hero_title, availability, bios, socials, is_active, status_indicator
+│       ├── xxxx_split_project_desc.py    [NEW] — description → summary + content
+│       └── xxxx_rename_tech_stack_to_tags.py [NEW] — tech_stack_csv → tags_csv
+├── docs/
+│   └── implementation_plan_v1.1.md       [NEW] — this file
+├── scripts/
+│   └── migrate_sqlite_to_pg.py           [NEW] — one-time ETL script
+├── src/app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── dependencies.py
+│   │   └── v1/
+│   │       ├── auth.py
+│   │       ├── personal_info.py          [UPDATE] — DELETE /profile, DELETE /profile/image
+│   │       └── projects.py              [UPDATE] — DELETE /projects/{id}/image
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py                    [UPDATE] — DATABASE_URL default, potential new settings
+│   │   ├── database.py                  [UPDATE] — PostgreSQL driver support
+│   │   └── security.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── personal_info.py             [UPDATE] — new columns + is_active
+│   │   └── projects.py                 [UPDATE] — summary + content
+│   ├── schemas/
+│   │   ├── __init__.py                  [UPDATE] — export new schemas
+│   │   ├── auth.py
+│   │   ├── personal_info.py             [UPDATE] — new fields in Base/Create/Update/Response
+│   │   └── projects.py                 [UPDATE] — summary + content fields
+│   └── services/
+│       ├── __init__.py                  [UPDATE] — export new service methods
+│       ├── personal_info.py             [UPDATE] — soft delete, image delete logic
+│       ├── projects.py                 [UPDATE] — image delete logic
+│       └── upload.py                   [UPDATE] — add delete_file utility
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                      [UPDATE] — PostgreSQL test setup if needed
+│   └── api/
+│       ├── __init__.py
+│       └── v1/
+│           ├── __init__.py
+│           ├── test_personal_info.py     [UPDATE] — tests for new endpoints + fields
+│           └── test_projects.py         [UPDATE] — tests for image deletion + split fields
+└── uploads/
+    ├── profile/
+    └── projects/
+```
+
+### Target `PersonalInfo` Schema (v1.1)
+
+| Column | Type | Nullable | Status |
+|---|---|---|---|
+| `id` | Integer (PK) | No | Existing |
+| `first_name` | String(50) | No | Existing |
+| `last_name` | String(50) | No | Existing |
+| `birth_date` | Date | Yes | Existing |
+| `bio` | Text | Yes | Existing (evaluate deprecation) |
+| `image_url` | String(255) | Yes | Existing |
+| `hero_title` | String(200) | Yes | **NEW** |
+| `availability_status` | String(100) | Yes | **NEW** |
+| `short_bio` | Text | Yes | **NEW** |
+| `long_bio` | Text | Yes | **NEW** |
+| `github_url` | String(255) | Yes | **NEW** |
+| `linkedin_url` | String(255) | Yes | **NEW** |
+| `email` | String(255) | Yes | **NEW** |
+| `is_active` | Boolean | No (default True) | **NEW** |
+| `status_indicator` | String(20) | Yes (default `"neutral"`) | **NEW** |
+
+### Target `Project` Schema (v1.1)
+
+| Column | Type | Nullable | Status |
+|---|---|---|---|
+| `id` | Integer (PK) | No | Existing |
+| `title` | String(100) | No | Existing |
+| `summary` | String(300) | No | **RENAMED** (was `description`) |
+| `content` | Text | Yes | **NEW** |
+| `github_url` | String(255) | Yes | Existing |
+| `live_url` | String(255) | Yes | Existing |
+| `image_url` | String(255) | Yes | Existing |
+| `tags_csv` | String(255) | Yes | **RENAMED** (was `tech_stack_csv`) |
+| `display_order` | Integer | No (default 0) | Existing |
+
+### Target API Endpoints (v1.1)
+
+| Method | Path | Auth | Status |
+|---|---|---|---|
+| `GET` | `/api/profile/` | Public | Existing — [UPDATE] filter `is_active` |
+| `PUT` | `/api/profile/` | Admin | Existing — [UPDATE] accept new fields |
+| `POST` | `/api/profile/upload-image` | Admin | Existing |
+| `DELETE` | `/api/profile/` | Admin | **NEW** — soft delete |
+| `DELETE` | `/api/profile/image` | Admin | **NEW** — remove profile image |
+| `GET` | `/api/projects/` | Public | Existing |
+| `GET` | `/api/projects/{id}` | Public | Existing |
+| `POST` | `/api/projects/` | Admin | Existing — [UPDATE] accept summary+content |
+| `PATCH` | `/api/projects/{id}` | Admin | Existing — [UPDATE] accept summary+content |
+| `DELETE` | `/api/projects/{id}` | Admin | Existing |
+| `POST` | `/api/projects/{id}/upload-image` | Admin | Existing |
+| `DELETE` | `/api/projects/{id}/image` | Admin | **NEW** — remove project image |
+| `POST` | `/api/auth/login` | Public | Existing |
+
+---
+
+## Step-by-Step Roadmap
+
+### Phase 1: Database Migration (SQLite → PostgreSQL)
+
+- [ ] Provision a cloud PostgreSQL database instance
+- [ ] Add `psycopg2-binary` to `pyproject.toml` via `uv add psycopg2-binary` (strictly lock to synchronous driver; `asyncpg` is excluded)
+- [ ] Update `core/config.py` — change `DATABASE_URL` default or document the new `.env` variable
+- [ ] Update `core/database.py` — ensure PostgreSQL driver compatibility (remove SQLite-only `connect_args` guard if no longer needed, or keep it for dev fallback)
+- [ ] Update `alembic.ini` — ensure `sqlalchemy.url` reads from env / `config.py`
+- [ ] Write `scripts/migrate_sqlite_to_pg.py` — one-time ETL script to extract data from `portfolio.db` and load into PostgreSQL
+- [ ] Run Alembic migrations against PostgreSQL to create the baseline schema
+- [ ] Execute ETL script to migrate existing data
+- [ ] Verify all existing endpoints work against PostgreSQL (run `uv run pytest -v`)
+- [ ] Update `.env.example` with PostgreSQL connection string template
+- [ ] Update `README.md` with PostgreSQL setup instructions
+
+### Phase 2: PersonalInfo Model Expansion (Global State Backend)
+
+- [ ] Add new columns to `models/personal_info.py`: `hero_title`, `availability_status`, `short_bio`, `long_bio`, `github_url`, `linkedin_url`, `email`
+- [ ] Add `is_active` boolean column to `models/personal_info.py` (default `True`, for Phase 5 soft delete)
+- [ ] Add `status_indicator` column to `models/personal_info.py`: `String(20)`, nullable, default `"neutral"` — drives the UI availability dot color/animation
+- [ ] Generate Alembic migration: `uv run alembic revision --autogenerate -m "expand personal_info model"`
+- [ ] Apply migration: `uv run alembic upgrade head`
+- [ ] Update `schemas/personal_info.py` — add new fields to `PersonalInfoBase`, `PersonalInfoCreate`, `PersonalInfoUpdate`, `PersonalInfoResponse`
+- [ ] Add Pydantic validation for `status_indicator`: use `Literal["success", "warning", "error", "neutral"] | None` to enforce allowed semantic values at the schema level
+- [ ] Update `services/personal_info.py` — ensure `upsert_personal_info` handles new fields
+- [ ] Update `api/v1/personal_info.py` — `GET /profile/` must filter by `is_active == True`
+- [ ] Update `schemas/__init__.py` — export any new schemas
+- [ ] Add/update tests in `tests/api/v1/test_personal_info.py` for new fields (including `status_indicator` validation — reject invalid values like `"banana"`)
+- [ ] Verify: `uv run pytest -v`
+- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — this must happen before any frontend Phase 2 work begins
+
+### Phase 3: Project Description Split (Summary vs. Content)
+
+- [ ] Update `models/projects.py`: rename `description` to `summary` (`Mapped[str] = mapped_column(String(300), nullable=False)`) and add `content` (`Mapped[str | None] = mapped_column(Text, nullable=True)`)
+- [ ] Generate Alembic revision: `uv run alembic revision -m "split project description into summary and content"`
+- [ ] Implement the safe 5-step Alembic migration sequence in the revision to prevent NOT NULL errors:
+  1. `op.add_column('projects', sa.Column('summary', sa.String(length=300), nullable=True))`
+  2. Data migration: `op.execute("UPDATE projects SET summary = LEFT(description, 300)")`
+  3. `op.add_column('projects', sa.Column('content', sa.Text(), nullable=True))`
+  4. `op.alter_column('projects', 'summary', nullable=False)`
+  5. `op.drop_column('projects', 'description')`
+- [ ] Apply migration: `uv run alembic upgrade head`
+- [ ] Update `schemas/projects.py` — replace `description` with `summary` + `content` in all schema classes
+- [ ] Update `services/projects.py` — adjust create/update logic for new fields
+- [ ] Update `api/v1/projects.py` — no route changes needed (schemas handle it)
+- [ ] Update `schemas/__init__.py` — verify exports
+- [ ] Update tests in `tests/api/v1/test_projects.py` for `summary` + `content`
+- [ ] Verify: `uv run pytest -v`
+- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `summary` + `content` fields
+
+### Phase 4: Domain Vocabulary Refactoring (Tech Stack → Tags)
+
+- [ ] Rename `tech_stack_csv` → `tags_csv` in `models/projects.py`
+- [ ] Generate Alembic migration: `uv run alembic revision -m "rename tech_stack_csv to tags_csv"`
+- [ ] Explicitly implement `op.alter_column('projects', 'tech_stack_csv', new_column_name='tags_csv')` to prevent Alembic from executing a destructive drop/add operation
+- [ ] Apply migration: `uv run alembic upgrade head`
+- [ ] Update `schemas/projects.py` — rename `tech_stack` → `tags` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, `ProjectResponse`
+- [ ] Update `services/projects.py` — adjust CSV ↔ list serialization to reference `tags_csv` / `tags` instead of `tech_stack_csv` / `tech_stack`
+- [ ] Update `schemas/__init__.py` — verify exports (no new schemas, just field renames)
+- [ ] Update tests in `tests/api/v1/test_projects.py` — replace all `tech_stack` references with `tags`
+- [ ] Verify: `uv run pytest -v`
+- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `tags` rename
+
+### Phase 5: Image Deletion & Profile Deletion Endpoints
+
+- [ ] Add `delete_file` utility function to `services/upload.py` — physically unlinks a file given its URL path
+- [ ] **Profile Image Deletion (Resilient Deletion):**
+  - [ ] Add `delete_image` method to `services/personal_info.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds (prevents dangling pointers on DB rollback)
+  - [ ] Add `DELETE /api/profile/image` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
+- [ ] **Project Image Deletion (Resilient Deletion):**
+  - [ ] Add `delete_image` method to `services/projects.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds
+  - [ ] Add `DELETE /api/projects/{id}/image` endpoint in `api/v1/projects.py` (Admin-only, returns 204)
+- [ ] **Profile Soft Delete & Singleton Upsert:**
+  - [ ] Add `soft_delete` method to `services/personal_info.py` — sets `is_active = False`
+  - [ ] Update `upsert_personal_info` in `services/personal_info.py` — handle singleton reactivation: if profile was soft-deleted (`is_active = False`) and Admin performs `PUT /api/profile/`, reactivate (`is_active = True`) and update existing record rather than inserting a new row (prevents PK/singleton violation)
+  - [ ] Add `DELETE /api/profile/` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
+- [ ] Update `services/__init__.py` — export new methods
+- [ ] Add tests for `DELETE /api/profile/image` in `test_personal_info.py` (verify commit happens before unlink)
+- [ ] Add tests for `DELETE /api/projects/{id}/image` in `test_projects.py`
+- [ ] Add tests for `DELETE /api/profile/` (soft delete) and subsequent `PUT /api/profile/` (singleton reactivation) in `test_personal_info.py`
+- [ ] Verify: `uv run pytest -v`
+
+### Phase 6: Final Verification & Documentation
+
+- [ ] Run full test suite against PostgreSQL: `uv run pytest -v`
+- [ ] Verify all new endpoints in Swagger UI (`/docs`)
+- [ ] Update `README.md` with v1.1 API changes
+- [ ] Update `.env.example` with any new environment variables
+- [ ] Archive `portfolio.db` (SQLite) — it is no longer the primary database
+

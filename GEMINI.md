@@ -61,7 +61,7 @@ The user is an experienced engineer mastering modern Python, FastAPI, and Clean 
 
 ## 7. Implementation Plan Sync (Mandatory)
 
-After completing **each step** in the project roadmap, the AI MUST update `docs/implementation_plan.md` (or the equivalent tracking file) in **ALL** of the following sections:
+After completing **each step** in the project roadmap, the AI MUST update `docs/implementation_plan_v1.1.md` in **ALL** of the following sections:
 1. **"Current Project State" tree** — Add the new file/folder with its status.
 2. **"Target Folder Structure" tree** — Mark the file/folder as ✅ Done.
 3. **"Phase X checklist"** — Mark the step as `[x]`.
