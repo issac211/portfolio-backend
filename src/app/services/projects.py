@@ -1,10 +1,11 @@
+from fastapi import UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Project
 from app.schemas import ProjectCreate, ProjectUpdate
 
-from .upload import delete_old_file
+from .upload import delete_old_file, save_upload_file
 
 
 class ProjectService:
@@ -114,3 +115,15 @@ class ProjectService:
         self.db.commit()
         self.db.refresh(project)
         return project
+
+    def upload_image(self, project_id: int, file: UploadFile) -> Project | None:
+        """Uploads and associates an image file with a project."""
+        project = self.db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return None
+
+        file_url = save_upload_file(file, "projects", old_file_url=project.image_url)
+        project.image_url = file_url
+        self.db.commit()
+        self.db.refresh(project)
+        return self._map_db_to_schema(project)
