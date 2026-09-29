@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.api import get_current_admin, get_personal_info_service
+from app.api.dependencies import get_current_admin, get_personal_info_service
 from app.models import PersonalInfo
 from app.schemas import PersonalInfoCreate, PersonalInfoResponse, PersonalInfoUpdate
 from app.services import PersonalInfoService

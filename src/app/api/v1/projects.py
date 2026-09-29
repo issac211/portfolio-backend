@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.api import get_current_admin, get_project_service
+from app.api.dependencies import get_current_admin, get_project_service
 from app.models import Project
 from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services import ProjectService
