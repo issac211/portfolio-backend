@@ -1,3 +1,4 @@
+import secrets
 from collections.abc import Generator
 
 import jwt
@@ -32,7 +33,7 @@ def get_personal_info_service(db: Session = Depends(get_db)) -> PersonalInfoServ
     return PersonalInfoService(db)
 
 
-def get_current_admin(token: str = Depends(oauth2_scheme)):
+def get_current_admin(token: str = Depends(oauth2_scheme)) -> str:
     """
     Dependency to protect routes.
     It reads the JWT token from the Authorization header and validates it.
@@ -46,8 +47,10 @@ def get_current_admin(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        username: str = payload.get("sub")
-        if username != settings.ADMIN_USERNAME:
+        username = payload.get("sub")
+        if not username or not secrets.compare_digest(
+            username, settings.ADMIN_USERNAME
+        ):
             raise credentials_exception
     except InvalidTokenError:
         raise credentials_exception

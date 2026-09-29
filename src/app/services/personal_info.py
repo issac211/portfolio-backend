@@ -1,4 +1,5 @@
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import PersonalInfo
@@ -12,7 +13,7 @@ class PersonalInfoService:
         self.db = db_session
 
     def get_personal_info(self) -> PersonalInfo | None:
-        return self.db.query(PersonalInfo).first()
+        return self.db.scalar(select(PersonalInfo))
 
     def upsert_personal_info(
         self, info_data: PersonalInfoCreate | PersonalInfoUpdate

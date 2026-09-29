@@ -1,5 +1,5 @@
 from fastapi import UploadFile
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Project
@@ -22,11 +22,13 @@ class ProjectService:
         return db_project
 
     def get_all_projects(self) -> list[Project]:
-        projects = self.db.query(Project).order_by(Project.display_order.asc()).all()
+        statement = select(Project).order_by(Project.display_order.asc())
+        projects = self.db.scalars(statement).all()
         return [self._map_db_to_schema(p) for p in projects]
 
     def get_project_by_id(self, project_id: int) -> Project | None:
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        statement = select(Project).where(Project.id == project_id)
+        project = self.db.scalar(statement)
         if project:
             return self._map_db_to_schema(project)
         return None
@@ -48,7 +50,7 @@ class ProjectService:
         # 3. Handle Auto-Ordering (If order wasn't explicitly provided)
         if data_dict.get("display_order") is None:
             # Query the max display_order currently in the DB
-            max_order = self.db.query(func.max(Project.display_order)).scalar() or 0
+            max_order = self.db.scalar(select(func.max(Project.display_order))) or 0
             data_dict["display_order"] = max_order + 1
 
         # Create and save
@@ -62,7 +64,8 @@ class ProjectService:
     def update_project(
         self, project_id: int, project_data: ProjectUpdate
     ) -> Project | None:
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        statement = select(Project).where(Project.id == project_id)
+        project = self.db.scalar(statement)
         if not project:
             return None
 
@@ -91,7 +94,8 @@ class ProjectService:
         return self._map_db_to_schema(project)
 
     def delete_project(self, project_id: int) -> bool:
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        statement = select(Project).where(Project.id == project_id)
+        project = self.db.scalar(statement)
         if not project:
             return False
 
@@ -120,7 +124,8 @@ class ProjectService:
         """Uploads and associates an image file with a project."""
         validate_upload_file(file)
 
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        statement = select(Project).where(Project.id == project_id)
+        project = self.db.scalar(statement)
         if not project:
             return None
 

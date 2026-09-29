@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4"}
 
 
-def delete_old_file(file_url: str | None):
+def delete_old_file(file_url: str | None) -> None:
     """
     Deletes the old file from disk to prevent storage leaks.
     Example file_url: "/uploads/profile/1234.jpg"
@@ -102,6 +102,7 @@ def _save_to_cloud(upload_file: UploadFile, subfolder: str) -> str:
     """
     FUTURE IMPLEMENTATION: Saves to Cloudinary/AWS (Production).
     """
-    raise NotImplementedError(
-        "Cloud storage is not implemented yet. Set ENVIRONMENT='development'."
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Cloud storage is not implemented yet. Set ENVIRONMENT='development'.",
     )

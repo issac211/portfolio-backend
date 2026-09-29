@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,7 @@ from app.api.v1 import auth, personal_info, projects
 from app.core import settings
 
 # Create uploads directory if it doesn't exist
-os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
