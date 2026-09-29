@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.models import Project
 from app.schemas import ProjectCreate, ProjectUpdate
 
+from .upload import delete_old_file
+
 
 class ProjectService:
     def __init__(self, db_session: Session):
@@ -92,8 +94,14 @@ class ProjectService:
         if not project:
             return False
 
+        image_to_delete = project.image_url
+
         self.db.delete(project)
         self.db.commit()
+
+        if image_to_delete:
+            delete_old_file(image_to_delete)
+
         return True
 
     def update_image(self, project_id: int, image_url: str) -> Project | None:
