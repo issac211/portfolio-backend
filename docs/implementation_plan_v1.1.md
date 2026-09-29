@@ -22,7 +22,7 @@
 
 ```
 backend/
-├── .env
+├── .env                                  # Configured with PostgreSQL connection string (Phase 1)
 ├── .env.example
 ├── .python-version
 ├── alembic.ini
@@ -36,7 +36,10 @@ backend/
 │   ├── README
 │   ├── script.py.mako
 │   └── versions/
-│       └── a999514ee9b4_initial_tables.py
+├── docs/
+│   └── implementation_plan_v1.1.md       # Implementation tracking
+├── scripts/
+│   └── migrate_sqlite_to_pg.py           # SQLite to PostgreSQL ETL script
 ├── src/app/
 │   ├── __init__.py
 │   ├── main.py
@@ -124,7 +127,7 @@ backend/
 ## Key Implementation Details
 
 > [!IMPORTANT]
-> **Database Migration (SQLite → PostgreSQL):** The `DATABASE_URL` in `config.py` currently defaults to `sqlite:///portfolio.db`. After PostgreSQL provisioning, update `.env` with the new connection string (e.g., `postgresql+psycopg2://user:pass@host:5432/portfolio`). The `connect_args` block in `database.py` already conditionally applies `check_same_thread` only for SQLite — no code breakage expected.
+> **Database Migration (SQLite → PostgreSQL):** Cloud PostgreSQL instance provisioned on Neon, `psycopg2-binary` installed, and connection string saved to `.env`. `app.core.config.Settings` incorporates a Pydantic V2 validator that normalizes `postgres://` and `postgresql://` URIs to `postgresql+psycopg2://`. The SQLAlchemy engine in `app.core.database` enables `pool_pre_ping=True` for resilient cloud connection recovery. `scripts/migrate_sqlite_to_pg.py` provides an automated ETL pipeline that migrates SQLite rows and explicitly synchronizes PostgreSQL identity sequences (`setval(pg_get_serial_sequence(...))`).
 
 > [!IMPORTANT]
 > **`PersonalInfo` Model Expansion — New Columns:**
@@ -199,14 +202,14 @@ backend/
 
 ```
 backend/
-├── .env                                  [UPDATE] — PostgreSQL DATABASE_URL
-├── .env.example                          [UPDATE] — document new env vars
+├── .env                                  ✅ Done — PostgreSQL DATABASE_URL configured
+├── .env.example                          ✅ Done — documented PostgreSQL connection template
 ├── .python-version
-├── alembic.ini                           [UPDATE] — PostgreSQL connection if hardcoded
+├── alembic.ini                           ✅ Done — dynamic override via settings.DATABASE_URL
 ├── GEMINI.md                             [UPDATE] — SOP Section 7 file reference
-├── pyproject.toml                        [UPDATE] — add psycopg2-binary dependency
-├── README.md
-├── uv.lock                              [UPDATE] — lockfile refresh
+├── pyproject.toml                        ✅ Done — added psycopg2-binary dependency
+├── README.md                             ✅ Done — PostgreSQL & ETL instructions
+├── uv.lock                              ✅ Done — lockfile refreshed
 ├── alembic/
 │   ├── env.py
 │   ├── README
@@ -217,9 +220,9 @@ backend/
 │       ├── xxxx_split_project_desc.py    [NEW] — description → summary + content
 │       └── xxxx_rename_tech_stack_to_tags.py [NEW] — tech_stack_csv → tags_csv
 ├── docs/
-│   └── implementation_plan_v1.1.md       [NEW] — this file
+│   └── implementation_plan_v1.1.md       ✅ Done — updated roadmap
 ├── scripts/
-│   └── migrate_sqlite_to_pg.py           [NEW] — one-time ETL script
+│   └── migrate_sqlite_to_pg.py           ✅ Done — one-time ETL script
 ├── src/app/
 │   ├── __init__.py
 │   ├── main.py
@@ -232,8 +235,8 @@ backend/
 │   │       └── projects.py              [UPDATE] — DELETE /projects/{id}/image
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── config.py                    [UPDATE] — DATABASE_URL default, potential new settings
-│   │   ├── database.py                  [UPDATE] — PostgreSQL driver support
+│   │   ├── config.py                    ✅ Done — DATABASE_URL normalizer
+│   │   ├── database.py                  ✅ Done — pool_pre_ping enabled
 │   │   └── security.py
 │   ├── models/
 │   │   ├── __init__.py
@@ -321,17 +324,17 @@ backend/
 
 ### Phase 1: Database Migration (SQLite → PostgreSQL)
 
-- [ ] Provision a cloud PostgreSQL database instance
-- [ ] Add `psycopg2-binary` to `pyproject.toml` via `uv add psycopg2-binary` (strictly lock to synchronous driver; `asyncpg` is excluded)
-- [ ] Update `core/config.py` — change `DATABASE_URL` default or document the new `.env` variable
-- [ ] Update `core/database.py` — ensure PostgreSQL driver compatibility (remove SQLite-only `connect_args` guard if no longer needed, or keep it for dev fallback)
-- [ ] Update `alembic.ini` — ensure `sqlalchemy.url` reads from env / `config.py`
-- [ ] Write `scripts/migrate_sqlite_to_pg.py` — one-time ETL script to extract data from `portfolio.db` and load into PostgreSQL
-- [ ] Run Alembic migrations against PostgreSQL to create the baseline schema
-- [ ] Execute ETL script to migrate existing data
-- [ ] Verify all existing endpoints work against PostgreSQL (run `uv run pytest -v`)
-- [ ] Update `.env.example` with PostgreSQL connection string template
-- [ ] Update `README.md` with PostgreSQL setup instructions
+- [x] Provision a cloud PostgreSQL database instance
+- [x] Add `psycopg2-binary` to `pyproject.toml` via `uv add psycopg2-binary` (strictly lock to synchronous driver; `asyncpg` is excluded)
+- [x] Update `core/config.py` — change `DATABASE_URL` default or document the new `.env` variable
+- [x] Update `core/database.py` — ensure PostgreSQL driver compatibility (remove SQLite-only `connect_args` guard if no longer needed, or keep it for dev fallback)
+- [x] Update `alembic.ini` — ensure `sqlalchemy.url` reads from env / `config.py`
+- [x] Write `scripts/migrate_sqlite_to_pg.py` — one-time ETL script to extract data from `portfolio.db` and load into PostgreSQL
+- [x] Run Alembic migrations against PostgreSQL to create the baseline schema
+- [x] Execute ETL script to migrate existing data
+- [x] Verify all existing endpoints work against PostgreSQL (run `uv run pytest -v`)
+- [x] Update `.env.example` with PostgreSQL connection string template
+- [x] Update `README.md` with PostgreSQL setup instructions
 
 ### Phase 2: PersonalInfo Model Expansion (Global State Backend)
 

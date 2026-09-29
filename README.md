@@ -22,7 +22,7 @@ This backend is designed with a strong focus on clean architecture, security, an
 * **Framework:** FastAPI
 * **Language:** Python 3.12+
 * **Package Manager:** `uv` (Blazing fast Python package manager)
-* **Database:** SQLite (Development) / Ready for PostgreSQL
+* **Database:** PostgreSQL (Neon Cloud via `psycopg2-binary`) / SQLite (Fallback & In-Memory Tests)
 * **ORM:** SQLAlchemy 2.0
 * **Migrations:** Alembic
 * **Validation:** Pydantic V2
@@ -34,6 +34,9 @@ This backend is designed with a strong focus on clean architecture, security, an
 ```text
 backend/
 ├── alembic/              # Database migration versions
+├── docs/                 # Implementation roadmap and specifications
+├── scripts/              # Data ETL and maintenance scripts
+│   └── migrate_sqlite_to_pg.py
 ├── src/
 │   └── app/
 │       ├── api/          # Route handlers (Controllers)
@@ -53,12 +56,15 @@ backend/
 Ensure you have Python installed and [uv](https://github.com/astral-sh/uv) configured on your machine.
 
 ### 2. Environment Setup
-Create a `.env` file in the root of the `backend` directory:
+Create a `.env` file in the root of the `backend` directory (refer to `.env.example`):
 ```env
 ENVIRONMENT="development"
 MEDIA_ROOT="uploads"
 MEDIA_URL="/uploads"
 MAX_IMAGE_SIZE_BYTES=5242880
+
+# Database Connection (Neon Cloud PostgreSQL)
+DATABASE_URL="postgresql+psycopg2://<user>:<password>@<host>.neon.tech/<dbname>?sslmode=require"
 
 # Security - Change these!
 SECRET_KEY="your-super-secret-crypto-key"
@@ -66,11 +72,48 @@ ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="your-secure-password"
 ```
 
-### 3. Database Migrations
-Run Alembic to create the database tables:
+### 3. Database Setup & Migration (PostgreSQL)
+
+The application uses PostgreSQL (hosted on [Neon](https://neon.tech)) in production and development, driven by SQLAlchemy 2.0 with the synchronous `psycopg2-binary` adapter.
+
+#### A. Database Provisioning & Connection URL
+
+Configure your `DATABASE_URL` in `.env`. Ensure that the connection string uses the `postgresql+psycopg2://` driver scheme and includes `?sslmode=require`.
+
+> [!WARNING]
+> **Neon Serverless Connections (Alembic Requirement):**
+> Neon provides connection pooling via PgBouncer by default (indicated by `-pooler` in the host domain). **Alembic migrations will fail** with `server closed the connection unexpectedly` or transaction errors when run through a connection pooler, because DDL migrations and transactional advisory locks require direct session-level capabilities.
+> 
+> **Action Required:** In the Neon console, uncheck **Pooled connection** and copy the **Direct Connection** URI for your `DATABASE_URL`.
+
+#### B. Applying Schema Migrations
+
+Run Alembic to create or upgrade database tables to the latest revision:
+
 ```bash
 uv run alembic upgrade head
 ```
+
+> [!NOTE]
+> **Windows Execution Policies (`os error 4551` Fallback):**
+> On Windows workstations, running `uv run alembic upgrade head` may fail with `os error 4551` or `Access is denied` if Windows Defender Application Control (WDAC) or endpoint security restricts execution of the generated `.venv\Scripts\alembic.exe` wrapper binary.
+> 
+> If you encounter this error, execute Alembic directly via Python's module runner:
+> ```bash
+> uv run python -m alembic upgrade head
+> ```
+
+#### C. Data Migration & Sequence Synchronization (One-Time ETL)
+
+If you are migrating existing data from a local SQLite database (`portfolio.db`) to PostgreSQL, execute the automated ETL script **after** applying the baseline Alembic migrations:
+
+```bash
+uv run python scripts/migrate_sqlite_to_pg.py
+```
+
+> [!IMPORTANT]
+> **Primary Key Sequence Synchronization:**
+> When rows with explicit IDs (`id=1, 2, ...`) are transferred into PostgreSQL, the underlying `SERIAL`/`IDENTITY` sequence counters do not automatically advance. The ETL script executes `SELECT setval(pg_get_serial_sequence(...))` for every table, ensuring that subsequent `POST` requests create new records without encountering `UniqueViolation` primary key collisions.
 
 ### 4. Run the Development Server
 Start the FastAPI application:

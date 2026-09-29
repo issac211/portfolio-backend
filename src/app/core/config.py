@@ -1,9 +1,20 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Portfolio API"
     DATABASE_URL: str = "sqlite:///portfolio.db"
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def assemble_db_connection(cls, v: str) -> str:
+        """Ensure PostgreSQL connection strings use the psycopg2 driver dialect."""
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+psycopg2://", 1)
+        if v.startswith("postgresql://") and not v.startswith("postgresql+"):
+            return v.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return v
 
     # --- Security Settings ---
     # Notice: No default values for secrets!
