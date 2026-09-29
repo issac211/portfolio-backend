@@ -27,6 +27,7 @@ This backend is designed with a strong focus on clean architecture, security, an
 * **Migrations:** Alembic
 * **Validation:** Pydantic V2
 * **Testing:** Pytest, HTTPX
+* **Linter & Formatter:** Ruff
 
 ## Project Structure
 
@@ -94,3 +95,33 @@ To run the test suite:
 ```bash
 uv run pytest -v
 ```
+
+## Code Quality & Linting (Ruff)
+
+This project enforces modern Python syntax, strict type checking, and clean architecture practices using [Ruff](https://docs.astral.sh/ruff/).
+
+### 1. Essential Commands
+
+* **Run linter checks:**
+  ```bash
+  uv run ruff check .
+  ```
+* **Format the codebase:**
+  ```bash
+  uv run ruff format .
+  ```
+* **Apply safe automated fixes (syntax & modern typing):**
+  ```bash
+  uv run ruff check . --fix
+  ```
+
+### 2. Architectural Guidelines & Best Practices
+
+To preserve framework idioms and clean separation of concerns, adhere to the following rules:
+
+* **Step-by-Step Hygiene:** Run `uv run ruff check .` alongside `uv run pytest -v` after completing every endpoint, service, or model slice before committing.
+* **No Blind Deletions:** Never delete lines or blindly run `--fix` to silence linter warnings without evaluating their architectural purpose.
+* **FastAPI Dependency Injection (`B008`):** Route parameter defaults using `Depends()`, `File()`, `Query()`, or `Path()` are configured under `[tool.ruff.lint.flake8-bugbear]` in `pyproject.toml` via `extend-immutable-calls`. Never refactor route signatures to bypass B008.
+* **Side-Effect & Discovery Imports (`F401`):** SQLAlchemy models imported for `Base.metadata` discovery in `tests/conftest.py` and `alembic/env.py` must be guarded with `# noqa: F401`. Module `__init__.py` files must declare explicit public exports using `__all__`.
+* **Defensive Error Handling (`BLE001`, `S110`):** Avoid broad exception clauses (`except Exception: pass`). Catch concrete errors (e.g., `OSError as e`) and log them using module-level loggers (`logger = logging.getLogger(__name__)`).
+
