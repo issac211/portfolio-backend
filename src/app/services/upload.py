@@ -1,3 +1,4 @@
+import logging
 import shutil
 import uuid
 from pathlib import Path
@@ -32,8 +33,8 @@ def delete_old_file(file_url: str | None):
             if local_path.exists() and local_path.is_file():
                 try:
                     local_path.unlink()
-                except Exception:
-                    pass
+                except OSError as e:
+                    logging.warning(e)
 
 
 def save_upload_file(

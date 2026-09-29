@@ -8,7 +8,7 @@ We build software in vertical, fully functional slices.
 - Provide code for **one endpoint, model, schema, or service at a time**.
 - Every step must result in executable and type-safe code.
 - **No placeholder code** (e.g., `# implement later`).
-- **Fast Fail (Validation):** Instruct the user to run tests via `uv run pytest -v` or linting checks to validate changes before moving forward. Do not introduce breaking changes without ensuring the current test suite will pass.
+- **Fast Fail (Validation & Linting):** Instruct the user to run `uv run ruff check .` and `uv run pytest -v` after **every single step**. If any check fails, stop and analyze the root cause before moving forward; do not introduce breaking changes without ensuring both linting and test suites pass.
 - Wait for user confirmation before moving to the next step.
 
 ## 2. Mandatory Git Protocol
@@ -70,3 +70,13 @@ After completing **each step** in the project roadmap, the AI MUST update `docs/
 
 > **Rule:** Do NOT consider a step complete until all updates have been applied to the tracking document.
 > **Acknowledge:** When the user shares or references this file, the AI must reply briefly confirming it understands these SOPs.
+
+## 8. Ruff & Linting Hygiene
+
+- **Mandatory Step-by-Step Validation:** Run `uv run ruff check .` after completing every step or code modification. If Ruff reports errors, pause and evaluate the root cause before proceeding.
+- **No Blind Deletions or Destructive Fixes:** Never blindly delete lines of code, suppress warnings, or execute reckless `--fix` commands just to silence an error. A flagged line often represents critical runtime behavior, framework wiring, or architectural side effects.
+- **Context-Aware Problem Solving:**
+  - **Framework Primitives (FastAPI):** When FastAPI idioms trigger linter rules (e.g., `B008` for `Depends`, `File`, `Query`, or `Path` default arguments), configure Ruff appropriately (e.g., `extend-immutable-calls` in `pyproject.toml`) instead of breaking route signatures.
+  - **Side-Effect & Discovery Imports (Alembic / Pytest):** If imports are required for model registration (`Base.metadata`) or fixture discovery (e.g., `F401`), protect them explicitly with `# noqa: F401` or standard `__all__` re-exports rather than deleting them.
+  - **Defensive Error Handling:** If broad exceptions are flagged (`BLE001`, `S110`), narrow the scope to concrete exceptions (e.g., `OSError`) and add structured logging (`logging.warning(e)`) rather than swallowing exceptions or removing safety boundaries.
+- **Architectural Integrity First:** Always ensure that resolving lint diagnostics preserves clean design, API contracts, and runtime safety.

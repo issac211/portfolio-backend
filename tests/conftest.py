@@ -12,7 +12,7 @@ from app.main import app
 
 # CRITICAL: We must import the models here so SQLAlchemy's Base knows about them
 # before we call create_all().
-from app.models import PersonalInfo, Project
+from app.models import PersonalInfo, Project  # noqa: F401
 
 # Use an in-memory SQLite database for blazing fast, isolated tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

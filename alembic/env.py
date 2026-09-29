@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 from app.core import Base, settings
 
 # 3. CRITICAL: Import ALL your models here so Alembic can see them!
-from app.models import PersonalInfo, Project
+from app.models import PersonalInfo, Project  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
