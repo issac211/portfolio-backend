@@ -39,26 +39,34 @@ def delete_old_file(file_url: str | None):
                     logger.warning(e)
 
 
-def save_upload_file(
-    upload_file: UploadFile, subfolder: str, old_file_url: str | None = None
-) -> str:
+def validate_upload_file(upload_file: UploadFile) -> str:
     """
-    Saves an uploaded file safely and returns the relative URL path.
+    Validates file size and allowed extension before any processing.
+    Returns the lowercase file extension.
     """
-    # Validate File Size
     if upload_file.size and upload_file.size > settings.MAX_IMAGE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"File is too large. Maximum allowed size is {settings.MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB.",
         )
 
-    # Validate Extension
     extension = Path(upload_file.filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File type {extension} is not allowed.",
         )
+
+    return extension
+
+
+def save_upload_file(
+    upload_file: UploadFile, subfolder: str, old_file_url: str | None = None
+) -> str:
+    """
+    Saves an uploaded file safely and returns the relative URL path.
+    """
+    extension = validate_upload_file(upload_file)
 
     if old_file_url:
         delete_old_file(old_file_url)

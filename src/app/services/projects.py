@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import Project
 from app.schemas import ProjectCreate, ProjectUpdate
 
-from .upload import delete_old_file, save_upload_file
+from .upload import delete_old_file, save_upload_file, validate_upload_file
 
 
 class ProjectService:
@@ -118,6 +118,8 @@ class ProjectService:
 
     def upload_image(self, project_id: int, file: UploadFile) -> Project | None:
         """Uploads and associates an image file with a project."""
+        validate_upload_file(file)
+
         project = self.db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return None

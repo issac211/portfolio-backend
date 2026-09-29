@@ -1,8 +1,10 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.models import PersonalInfo
 from app.schemas import PersonalInfoCreate, PersonalInfoUpdate
+
+from .upload import save_upload_file, validate_upload_file
 
 
 class PersonalInfoService:
@@ -44,11 +46,28 @@ class PersonalInfoService:
         if not profile:
             # We enforce that a text profile must exist before uploading an image
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Please create a profile first before uploading an image.",
             )
 
         profile.image_url = image_url
+        self.db.commit()
+        self.db.refresh(profile)
+        return profile
+
+    def upload_image(self, file: UploadFile) -> PersonalInfo:
+        """Uploads and associates an image file with the personal profile."""
+        validate_upload_file(file)
+
+        profile = self.get_personal_info()
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please create a profile first before uploading an image.",
+            )
+
+        file_url = save_upload_file(file, "profile", old_file_url=profile.image_url)
+        profile.image_url = file_url
         self.db.commit()
         self.db.refresh(profile)
         return profile
