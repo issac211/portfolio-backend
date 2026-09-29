@@ -13,7 +13,7 @@ from app.services import PersonalInfoService, ProjectService
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     """Provide a database session per request."""
     db = SessionLocal()
     try:

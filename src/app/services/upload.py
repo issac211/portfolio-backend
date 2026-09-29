@@ -7,6 +7,8 @@ from fastapi import HTTPException, UploadFile, status
 
 from app.core import settings
 
+logger = logging.getLogger(__name__)
+
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4"}
 
 
@@ -34,7 +36,7 @@ def delete_old_file(file_url: str | None):
                 try:
                     local_path.unlink()
                 except OSError as e:
-                    logging.warning(e)
+                    logger.warning(e)
 
 
 def save_upload_file(
@@ -78,11 +80,12 @@ def _save_to_local_disk(upload_file: UploadFile, subfolder: str, extension: str)
     try:
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(upload_file.file, buffer)
-    except Exception:
+    except OSError as e:
+        logger.error(f"Failed to write file: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not save file to disk.",
-        )
+        ) from e
 
     return f"{settings.MEDIA_URL}/{subfolder}/{unique_filename}"
 
