@@ -41,6 +41,7 @@ backend/
 ├── docs/
 │   └── implementation_plan_v1.1.md       # Implementation tracking
 ├── scripts/
+│   ├── export_openapi.py                 # OpenAPI contract export script
 │   └── migrate_sqlite_to_pg.py           # SQLite to PostgreSQL ETL script
 ├── src/app/
 │   ├── __init__.py
@@ -164,10 +165,10 @@ backend/
 > **API Contract-Driven Development:**
 > After completing database + schema changes in each phase (Phases 2, 3, 4), the backend **must** export/regenerate the OpenAPI spec before frontend work begins:
 > ```bash
-> # Option A: Use FastAPI's built-in export
-> curl http://localhost:8000/openapi.json > ../frontend/api-contract.json
-> # Option B: Generate via script if the server isn't running
-> uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi()))" > ../frontend/api-contract.json
+> # Option A: Dedicated export script (Recommended)
+> uv run python scripts/export_openapi.py
+> # Option B: Python inline execution
+> uv run python -c "import sys; sys.path.insert(0, 'src'); from app.main import app; import json; open('../frontend/api-contract.json', 'w', encoding='utf-8').write(json.dumps(app.openapi(), indent=2))"
 > ```
 > This file (`frontend/api-contract.json`) serves as the single source of truth for the frontend team. The frontend should validate its TypeScript interfaces against this contract.
 
@@ -233,6 +234,7 @@ backend/
 ├── docs/
 │   └── implementation_plan_v1.1.md       ✅ Done — updated roadmap
 ├── scripts/
+│   ├── export_openapi.py                 ✅ Done — OpenAPI schema export utility
 │   └── migrate_sqlite_to_pg.py           ✅ Done — one-time ETL script
 ├── src/app/
 │   ├── __init__.py
@@ -361,7 +363,7 @@ backend/
 - [x] Update `schemas/__init__.py` — export any new schemas
 - [x] Add/update tests in `tests/api/v1/test_personal_info.py` for new fields (including `status_indicator` validation — reject invalid values like `"banana"`)
 - [x] Verify: `uv run pytest -v`
-- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — this must happen before any frontend Phase 2 work begins
+- [x] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — this must happen before any frontend Phase 2 work begins
 
 ### Phase 3: Project Description Split (Summary vs. Content)
 
