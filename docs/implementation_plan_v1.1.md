@@ -36,6 +36,8 @@ backend/
 │   ├── README
 │   ├── script.py.mako
 │   └── versions/
+│       ├── a999514ee9b4_initial_tables.py
+│       └── d086cbd3eed6_expand_personal_info_model.py
 ├── docs/
 │   └── implementation_plan_v1.1.md       # Implementation tracking
 ├── scripts/
@@ -83,16 +85,24 @@ backend/
     └── projects/
 ```
 
-### Current `PersonalInfo` Schema (v1.0)
+### Current `PersonalInfo` Schema (v1.1)
 
-| Column | Type | Nullable |
-|---|---|---|
-| `id` | Integer (PK) | No |
-| `first_name` | String(50) | No |
-| `last_name` | String(50) | No |
-| `birth_date` | Date | Yes |
-| `bio` | Text | Yes |
-| `image_url` | String(255) | Yes |
+| Column | Type | Nullable | Notes / Default |
+|---|---|---|---|
+| `id` | Integer (PK) | No | Auto-increment sequence |
+| `first_name` | String(50) | No | |
+| `last_name` | String(50) | No | |
+| `birth_date` | Date | Yes | |
+| `bio` | Text | Yes | Canonical full biography |
+| `image_url` | String(255) | Yes | |
+| `hero_title` | String(200) | Yes | Added in Phase 2 |
+| `availability_status` | String(100) | Yes | Added in Phase 2 |
+| `short_bio` | Text | Yes | Added in Phase 2 (elevator pitch/tagline) |
+| `github_url` | String(255) | Yes | Added in Phase 2 |
+| `linkedin_url` | String(255) | Yes | Added in Phase 2 |
+| `email` | String(255) | Yes | Added in Phase 2 |
+| `is_active` | Boolean | No | Added in Phase 2, `server_default=true` |
+| `status_indicator` | String(20) | Yes | Added in Phase 2, `server_default="neutral"` |
 
 ### Current `Project` Schema (v1.0)
 
@@ -135,12 +145,13 @@ backend/
 > hero_title        : String(200), nullable=True
 > availability_status: String(100), nullable=True
 > short_bio         : Text, nullable=True
-> long_bio          : Text, nullable=True
 > github_url        : String(255), nullable=True
 > linkedin_url      : String(255), nullable=True
 > email             : String(255), nullable=True
 > ```
-> The existing `bio` column will be **retained as-is** during the transition. `short_bio` and `long_bio` provide the new semantic split. Decide during implementation whether to deprecate `bio` or map it to `long_bio`.
+> The existing `bio` column is retained as the full biography (preserving existing data without migration drift), while `short_bio` serves as the concise hero/card tagline. `long_bio` was intentionally omitted to prevent data redundancy.
+>
+> **Server-Side Defaults for Pre-Existing Rows:** Adding `is_active` (`NOT NULL`) to a table already containing rows requires a database-level default (`server_default=sa.text("true")`). Python-level defaults (`default=True`) only apply to ORM-level inserts and trigger a PostgreSQL `NotNullViolation` during schema migration DDL. `status_indicator` similarly includes `server_default="neutral"`.
 
 > [!IMPORTANT]
 > **`PersonalInfo` Model — `status_indicator` Column:**
@@ -216,7 +227,7 @@ backend/
 │   ├── script.py.mako
 │   └── versions/
 │       ├── a999514ee9b4_initial_tables.py
-│       ├── xxxx_expand_personal_info.py  [NEW] — hero_title, availability, bios, socials, is_active, status_indicator
+│       ├── d086cbd3eed6_expand_personal_info_model.py ✅ Done — hero_title, availability, short_bio, socials, is_active, status_indicator
 │       ├── xxxx_split_project_desc.py    [NEW] — description → summary + content
 │       └── xxxx_rename_tech_stack_to_tags.py [NEW] — tech_stack_csv → tags_csv
 ├── docs/
@@ -240,7 +251,7 @@ backend/
 │   │   └── security.py
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── personal_info.py             [UPDATE] — new columns + is_active
+│   │   ├── personal_info.py             ✅ Done — expanded model with marketing, social, and state columns
 │   │   └── projects.py                 [UPDATE] — summary + content
 │   ├── schemas/
 │   │   ├── __init__.py                  [UPDATE] — export new schemas
@@ -338,11 +349,11 @@ backend/
 
 ### Phase 2: PersonalInfo Model Expansion (Global State Backend)
 
-- [ ] Add new columns to `models/personal_info.py`: `hero_title`, `availability_status`, `short_bio`, `long_bio`, `github_url`, `linkedin_url`, `email`
-- [ ] Add `is_active` boolean column to `models/personal_info.py` (default `True`, for Phase 5 soft delete)
-- [ ] Add `status_indicator` column to `models/personal_info.py`: `String(20)`, nullable, default `"neutral"` — drives the UI availability dot color/animation
-- [ ] Generate Alembic migration: `uv run alembic revision --autogenerate -m "expand personal_info model"`
-- [ ] Apply migration: `uv run alembic upgrade head`
+- [x] Add new columns to `models/personal_info.py`: `hero_title`, `availability_status`, `short_bio`, `github_url`, `linkedin_url`, `email`
+- [x] Add `is_active` boolean column to `models/personal_info.py` (default `True`, for Phase 5 soft delete)
+- [x] Add `status_indicator` column to `models/personal_info.py`: `String(20)`, nullable, default `"neutral"` — drives the UI availability dot color/animation
+- [x] Generate Alembic migration: `uv run alembic revision --autogenerate -m "expand personal_info model"`
+- [x] Apply migration: `uv run alembic upgrade head`
 - [ ] Update `schemas/personal_info.py` — add new fields to `PersonalInfoBase`, `PersonalInfoCreate`, `PersonalInfoUpdate`, `PersonalInfoResponse`
 - [ ] Add Pydantic validation for `status_indicator`: use `Literal["success", "warning", "error", "neutral"] | None` to enforce allowed semantic values at the schema level
 - [ ] Update `services/personal_info.py` — ensure `upsert_personal_info` handles new fields
