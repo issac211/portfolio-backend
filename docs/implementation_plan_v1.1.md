@@ -254,9 +254,9 @@ backend/
 │   │   ├── personal_info.py             ✅ Done — expanded model with marketing, social, and state columns
 │   │   └── projects.py                 [UPDATE] — summary + content
 │   ├── schemas/
-│   │   ├── __init__.py                  [UPDATE] — export new schemas
+│   │   ├── __init__.py                  ✅ Done — export concrete schemas
 │   │   ├── auth.py
-│   │   ├── personal_info.py             [UPDATE] — new fields in Base/Create/Update/Response
+│   │   ├── personal_info.py             ✅ Done — new fields, Literal validation, is_active restricted to Response
 │   │   └── projects.py                 [UPDATE] — summary + content fields
 │   └── services/
 │       ├── __init__.py                  [UPDATE] — export new service methods
@@ -270,7 +270,7 @@ backend/
 │       ├── __init__.py
 │       └── v1/
 │           ├── __init__.py
-│           ├── test_personal_info.py     [UPDATE] — tests for new endpoints + fields
+│           ├── test_personal_info.py     ✅ Done — tests for new fields, Literal validation, and soft-delete filtering
 │           └── test_projects.py         [UPDATE] — tests for image deletion + split fields
 └── uploads/
     ├── profile/
@@ -354,13 +354,13 @@ backend/
 - [x] Add `status_indicator` column to `models/personal_info.py`: `String(20)`, nullable, default `"neutral"` — drives the UI availability dot color/animation
 - [x] Generate Alembic migration: `uv run alembic revision --autogenerate -m "expand personal_info model"`
 - [x] Apply migration: `uv run alembic upgrade head`
-- [ ] Update `schemas/personal_info.py` — add new fields to `PersonalInfoBase`, `PersonalInfoCreate`, `PersonalInfoUpdate`, `PersonalInfoResponse`
-- [ ] Add Pydantic validation for `status_indicator`: use `Literal["success", "warning", "error", "neutral"] | None` to enforce allowed semantic values at the schema level
-- [ ] Update `services/personal_info.py` — ensure `upsert_personal_info` handles new fields
-- [ ] Update `api/v1/personal_info.py` — `GET /profile/` must filter by `is_active == True`
-- [ ] Update `schemas/__init__.py` — export any new schemas
-- [ ] Add/update tests in `tests/api/v1/test_personal_info.py` for new fields (including `status_indicator` validation — reject invalid values like `"banana"`)
-- [ ] Verify: `uv run pytest -v`
+- [x] Update `schemas/personal_info.py` — add new fields to `PersonalInfoBase`, `PersonalInfoCreate`, `PersonalInfoUpdate`, `PersonalInfoResponse`
+- [x] Add Pydantic validation for `status_indicator`: use `Literal["success", "warning", "error", "neutral"] | None` to enforce allowed semantic values at the schema level
+- [x] Update `services/personal_info.py` — ensure `upsert_personal_info` handles new fields
+- [x] Update `api/v1/personal_info.py` — `GET /profile/` must filter by `is_active == True`
+- [x] Update `schemas/__init__.py` — export any new schemas
+- [x] Add/update tests in `tests/api/v1/test_personal_info.py` for new fields (including `status_indicator` validation — reject invalid values like `"banana"`)
+- [x] Verify: `uv run pytest -v`
 - [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — this must happen before any frontend Phase 2 work begins
 
 ### Phase 3: Project Description Split (Summary vs. Content)

@@ -1,4 +1,7 @@
+from sqlalchemy import select
+
 from app.core import settings
+from app.models import PersonalInfo
 
 
 def test_get_profile_not_found(client):
@@ -14,6 +17,13 @@ def test_upsert_profile_create(admin_client):
         "last_name": "Doe",
         "bio": "Anonymous Software Developer testing the system.",
         "birth_date": "1990-01-01",
+        "hero_title": "Full Stack Cloud Engineer",
+        "availability_status": "Available for contract",
+        "short_bio": "Crafting resilient microservices and distributed systems.",
+        "github_url": "https://github.com/johndoe",
+        "linkedin_url": "https://linkedin.com/in/johndoe",
+        "email": "john@example.com",
+        "status_indicator": "success",
     }
     response = admin_client.put("/api/v1/profile/", json=payload)
 
@@ -21,6 +31,17 @@ def test_upsert_profile_create(admin_client):
     data = response.json()
     assert data["first_name"] == "John"
     assert data["last_name"] == "Doe"
+    assert data["hero_title"] == "Full Stack Cloud Engineer"
+    assert data["availability_status"] == "Available for contract"
+    assert (
+        data["short_bio"]
+        == "Crafting resilient microservices and distributed systems."
+    )
+    assert data["github_url"] == "https://github.com/johndoe"
+    assert data["linkedin_url"] == "https://linkedin.com/in/johndoe"
+    assert data["email"] == "john@example.com"
+    assert data["status_indicator"] == "success"
+    assert data["is_active"] is True
     assert "id" in data
 
 
@@ -84,3 +105,77 @@ def test_upload_profile_image_too_large(admin_client):
     # Must be 413 Payload Too Large
     assert response.status_code == 413
     assert "too large" in response.json()["detail"].lower()
+
+
+def test_status_indicator_validation(admin_client):
+    # Valid semantic values
+    for val in ("success", "warning", "error", "neutral"):
+        res = admin_client.put(
+            "/api/v1/profile/",
+            json={"first_name": "A", "last_name": "B", "status_indicator": val},
+        )
+        assert res.status_code == 200
+        assert res.json()["status_indicator"] == val
+
+    # Invalid value should trigger 422 Unprocessable Entity
+    invalid_res = admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "A", "last_name": "B", "status_indicator": "banana"},
+    )
+    assert invalid_res.status_code == 422
+
+
+def test_get_profile_inactive_filtered(admin_client, client, test_db):
+    # 1. Create profile
+    admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "Hidden", "last_name": "User"},
+    )
+    # 2. Deactivate profile (simulate soft delete)
+    profile = test_db.scalar(select(PersonalInfo))
+    assert profile is not None
+    profile.is_active = False
+    test_db.commit()
+
+    # 3. Public GET should filter out inactive profiles and return 404
+    response = client.get("/api/v1/profile/")
+    assert response.status_code == 404
+
+
+def test_upsert_profile_reactivates_inactive_singleton(admin_client, client, test_db):
+    # 1. Create and deactivate profile
+    admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "Reactivated", "last_name": "User"},
+    )
+    profile = test_db.scalar(select(PersonalInfo))
+    assert profile is not None
+    profile.is_active = False
+    test_db.commit()
+
+    assert client.get("/api/v1/profile/").status_code == 404
+
+    # 2. Upserting automatically reactivates the singleton
+    admin_client.put(
+        "/api/v1/profile/",
+        json={
+            "first_name": "Reactivated",
+            "last_name": "User",
+            "hero_title": "Back online",
+        },
+    )
+    res = client.get("/api/v1/profile/")
+    assert res.status_code == 200
+    assert res.json()["is_active"] is True
+    assert res.json()["hero_title"] == "Back online"
+
+
+def test_upsert_profile_cannot_manually_deactivate(admin_client):
+    # Attempting to pass is_active: false in payload must NOT deactivate profile
+    admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "Active", "last_name": "User", "is_active": False},
+    )
+    res = admin_client.get("/api/v1/profile/")
+    assert res.status_code == 200
+    assert res.json()["is_active"] is True

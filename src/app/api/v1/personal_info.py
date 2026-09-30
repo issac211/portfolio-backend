@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.dependencies import get_current_admin, get_personal_info_service
 from app.models import PersonalInfo
@@ -12,13 +12,7 @@ router = APIRouter(prefix="/profile", tags=["Personal Info"])
 def get_profile(
     service: PersonalInfoService = Depends(get_personal_info_service),
 ) -> PersonalInfo:
-    info = service.get_personal_info()
-    if not info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile info not found. Please create one.",
-        )
-    return info
+    return service.get_profile(active_only=True)
 
 
 @router.put(

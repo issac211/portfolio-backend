@@ -12,16 +12,42 @@ class PersonalInfoService:
     def __init__(self, db_session: Session):
         self.db = db_session
 
-    def get_personal_info(self) -> PersonalInfo | None:
-        return self.db.scalar(select(PersonalInfo))
+    def _get_personal_info(self, active_only: bool = False) -> PersonalInfo | None:
+        """Fetch the singleton PersonalInfo profile from the database.
+
+        Args:
+            active_only: If True, only queries active profiles (is_active == True).
+        """
+        stmt = select(PersonalInfo)
+        if active_only:
+            stmt = stmt.where(PersonalInfo.is_active.is_(True))
+        return self.db.scalar(stmt)
+
+    def get_profile(self, active_only: bool = True) -> PersonalInfo:
+        """Retrieve the personal profile or raise HTTP 404 if not found.
+
+        Args:
+            active_only: If True, restricts retrieval to active profiles.
+
+        Raises:
+            HTTPException: 404 NOT FOUND if the profile does not exist or is inactive.
+        """
+        info = self._get_personal_info(active_only=active_only)
+        if not info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile info not found. Please create one.",
+            )
+        return info
 
     def upsert_personal_info(
         self, info_data: PersonalInfoCreate | PersonalInfoUpdate
     ) -> PersonalInfo:
+        """Creates the record if it doesn't exist, updates it if it does.
+
+        Reactivates soft-deleted profiles if updated.
         """
-        Creates the record if it doesn't exist, updates it if it does.
-        """
-        info = self.get_personal_info()
+        info = self._get_personal_info(active_only=False)
         update_data = info_data.model_dump(exclude_unset=True)
 
         # Convert HttpUrl object to standard string for SQLAlchemy
@@ -33,7 +59,9 @@ class PersonalInfoService:
             info = PersonalInfo(**update_data)
             self.db.add(info)
         else:
-            # Update mode
+            # Update mode: reactivate if previously soft-deleted
+            if not info.is_active:
+                info.is_active = True
             for key, value in update_data.items():
                 setattr(info, key, value)
 
@@ -41,16 +69,17 @@ class PersonalInfoService:
         self.db.refresh(info)
         return info
 
+    def soft_delete(self) -> PersonalInfo:
+        """Deactivates the personal profile (soft delete)."""
+        profile = self.get_profile(active_only=False)
+        profile.is_active = False
+        self.db.commit()
+        self.db.refresh(profile)
+        return profile
+
     def update_image(self, image_url: str) -> PersonalInfo:
         """Directly updates the profile image_url."""
-        profile = self.get_personal_info()
-        if not profile:
-            # We enforce that a text profile must exist before uploading an image
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Please create a profile first before uploading an image.",
-            )
-
+        profile = self.get_profile(active_only=False)
         profile.image_url = image_url
         self.db.commit()
         self.db.refresh(profile)
@@ -60,13 +89,7 @@ class PersonalInfoService:
         """Uploads and associates an image file with the personal profile."""
         validate_upload_file(file)
 
-        profile = self.get_personal_info()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Please create a profile first before uploading an image.",
-            )
-
+        profile = self.get_profile(active_only=False)
         file_url = save_upload_file(file, "profile", old_file_url=profile.image_url)
         profile.image_url = file_url
         self.db.commit()
