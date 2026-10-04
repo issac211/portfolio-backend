@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.api.dependencies import get_current_admin, get_project_service
 from app.models import Project
@@ -19,12 +19,7 @@ def get_all_projects(
 def get_project(
     project_id: int, service: ProjectService = Depends(get_project_service)
 ) -> Project:
-    project = service.get_project_by_id(project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
-    return project
+    return service.get_project_by_id(project_id)
 
 
 @router.post(
@@ -51,12 +46,7 @@ def update_project(
     service: ProjectService = Depends(get_project_service),
 ) -> Project:
     # Using PATCH instead of PUT because fields in ProjectUpdate are optional
-    project = service.update_project(project_id, project_in)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
-    return project
+    return service.update_project(project_id, project_in)
 
 
 @router.delete(
@@ -68,11 +58,7 @@ def delete_project(
     project_id: int,
     service: ProjectService = Depends(get_project_service),
 ) -> None:
-    success = service.delete_project(project_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+    service.delete_project(project_id)
 
 
 @router.post(
@@ -88,13 +74,7 @@ def upload_project_image(
     """
     Uploads an image and assigns it to a specific project.
     """
-    project = service.upload_image(project_id, file)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
-
-    return project
+    return service.upload_image(project_id, file)
 
 
 @router.delete(
@@ -109,8 +89,4 @@ def delete_project_image(
     """
     Removes an image associated with a specific project.
     """
-    project = service.delete_image(project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+    service.delete_image(project_id)

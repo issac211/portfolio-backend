@@ -202,6 +202,10 @@ backend/
 > 4. Endpoints return `204 No Content` on success. Fully verified via test suite.
 
 > [!NOTE]
+> **Thin Controllers & Service-Layer 404 Guards (`ProjectService` & `PersonalInfoService`):**
+> Following strict Clean Architecture / DDD, entity resolution and 404 HTTP exception handling are encapsulated inside the service layer (`ProjectService.get_project_by_id` and `PersonalInfoService.get_profile`), with internal raw queries factored out into `_get_project_by_id` and `_get_personal_info`. All mutating methods (`update_project`, `delete_project`, `upload_image`, `delete_image`) reuse `get_project_by_id` directly, completely eliminating repeated `if not project: raise HTTPException(...)` checks and duplicate `select(Project).where(...)` queries across both the service and API controller layers.
+
+> [!NOTE]
 > **Domain Vocabulary Refactoring — `tech_stack` → `tags` (Alembic Rename Safety):**
 > - **Model:** Renamed `tech_stack_csv` → `tags_csv` in the `Project` SQLAlchemy model. The underlying storage mechanism (comma-separated string) remains unchanged in v1.1.
 > - **Schemas/API:** Renamed `tech_stack: list[str] | None` → `tags: list[str] | None` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, and `ProjectResponse`. The CSV ↔ list serialization logic in the service layer references `tags_csv` / `tags`.

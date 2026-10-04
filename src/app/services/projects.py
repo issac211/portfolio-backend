@@ -1,4 +1,4 @@
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,12 +31,20 @@ class ProjectService:
         projects = self.db.scalars(statement).all()
         return [self._map_db_to_schema(p) for p in projects]
 
-    def get_project_by_id(self, project_id: int) -> Project | None:
+    def _get_project_by_id(self, project_id: int) -> Project | None:
+        """Internal helper to retrieve a raw Project model from the database."""
         statement = select(Project).where(Project.id == project_id)
-        project = self.db.scalar(statement)
-        if project:
-            return self._map_db_to_schema(project)
-        return None
+        return self.db.scalar(statement)
+
+    def get_project_by_id(self, project_id: int) -> Project:
+        """Retrieve a project by id or raise HTTP 404 NOT FOUND."""
+        project = self._get_project_by_id(project_id)
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+        return self._map_db_to_schema(project)
 
     def create_project(self, project_data: ProjectCreate) -> Project:
         data_dict = project_data.model_dump()
@@ -68,11 +76,8 @@ class ProjectService:
 
     def update_project(
         self, project_id: int, project_data: ProjectUpdate
-    ) -> Project | None:
-        statement = select(Project).where(Project.id == project_id)
-        project = self.db.scalar(statement)
-        if not project:
-            return None
+    ) -> Project:
+        project = self.get_project_by_id(project_id)
 
         # exclude_unset=True guarantees we only process fields the client actually sent
         update_data = project_data.model_dump(exclude_unset=True)
@@ -98,12 +103,8 @@ class ProjectService:
 
         return self._map_db_to_schema(project)
 
-    def delete_project(self, project_id: int) -> bool:
-        statement = select(Project).where(Project.id == project_id)
-        project = self.db.scalar(statement)
-        if not project:
-            return False
-
+    def delete_project(self, project_id: int) -> None:
+        project = self.get_project_by_id(project_id)
         image_to_delete = project.image_url
 
         self.db.delete(project)
@@ -112,27 +113,19 @@ class ProjectService:
         if image_to_delete:
             delete_old_file(image_to_delete)
 
-        return True
-
-    def update_image(self, project_id: int, image_url: str) -> Project | None:
+    def update_image(self, project_id: int, image_url: str) -> Project:
         """Directly updates the image_url in the database."""
         project = self.get_project_by_id(project_id)
-        if not project:
-            return None
-
         project.image_url = image_url
         self.db.commit()
         self.db.refresh(project)
-        return project
+        return self._map_db_to_schema(project)
 
-    def upload_image(self, project_id: int, file: UploadFile) -> Project | None:
+    def upload_image(self, project_id: int, file: UploadFile) -> Project:
         """Uploads and associates an image file with a project."""
         validate_upload_file(file)
 
-        statement = select(Project).where(Project.id == project_id)
-        project = self.db.scalar(statement)
-        if not project:
-            return None
+        project = self.get_project_by_id(project_id)
 
         file_url = save_upload_file(file, "projects", old_file_url=project.image_url)
         project.image_url = file_url
@@ -140,17 +133,14 @@ class ProjectService:
         self.db.refresh(project)
         return self._map_db_to_schema(project)
 
-    def delete_image(self, project_id: int) -> Project | None:
+    def delete_image(self, project_id: int) -> Project:
         """Removes the project image with resilient post-commit file cleanup.
 
-        1. Finds the project by id.
+        1. Finds the project by id (raises 404 if not found).
         2. Sets image_url = None and commits DB transaction FIRST.
         3. Calls delete_file only AFTER DB commit succeeds.
         """
-        statement = select(Project).where(Project.id == project_id)
-        project = self.db.scalar(statement)
-        if not project:
-            return None
+        project = self.get_project_by_id(project_id)
 
         old_image_url = project.image_url
         if not old_image_url:
