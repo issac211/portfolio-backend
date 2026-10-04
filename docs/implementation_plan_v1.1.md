@@ -27,7 +27,6 @@ backend/
 ├── .python-version
 ├── alembic.ini
 ├── GEMINI.md
-├── portfolio.db                          # SQLite database (v1.0)
 ├── pyproject.toml
 ├── README.md
 ├── uv.lock
@@ -40,6 +39,8 @@ backend/
 │       ├── d086cbd3eed6_expand_personal_info_model.py
 │       ├── 631310bbdef1_split_project_description_into_summary_.py
 │       └── af22ec542233_rename_tech_stack_csv_to_tags_csv.py
+├── archive/
+│   └── portfolio.db.bak                  # Archived SQLite database
 ├── docs/
 │   └── implementation_plan_v1.1.md       # Implementation tracking
 ├── scripts/
@@ -229,7 +230,7 @@ backend/
 ├── .env.example                          ✅ Done — documented PostgreSQL connection template
 ├── .python-version
 ├── alembic.ini                           ✅ Done — dynamic override via settings.DATABASE_URL
-├── GEMINI.md                             [UPDATE] — SOP Section 7 file reference
+├── GEMINI.md                             ✅ Done — SOP Section 7 file reference to docs/implementation_plan_v1.1.md
 ├── pyproject.toml                        ✅ Done — added psycopg2-binary dependency
 ├── README.md                             ✅ Done — PostgreSQL & ETL instructions
 ├── uv.lock                              ✅ Done — lockfile refreshed
@@ -242,6 +243,8 @@ backend/
 │       ├── d086cbd3eed6_expand_personal_info_model.py ✅ Done — hero_title, availability, short_bio, socials, is_active, status_indicator
 │       ├── 631310bbdef1_split_project_description_into_summary_.py ✅ Done — description → summary + content
 │       └── af22ec542233_rename_tech_stack_csv_to_tags_csv.py ✅ Done — tech_stack_csv → tags_csv
+├── archive/
+│   └── portfolio.db.bak                  ✅ Done — archived legacy SQLite database
 ├── docs/
 │   └── implementation_plan_v1.1.md       ✅ Done — updated roadmap
 ├── scripts/
@@ -278,7 +281,7 @@ backend/
 │       └── upload.py                   ✅ Done — add delete_file utility
 ├── tests/
 │   ├── __init__.py
-│   ├── conftest.py                      [UPDATE] — PostgreSQL test setup if needed
+│   ├── conftest.py                      ✅ Done — in-memory SQLite isolation with StaticPool
 │   └── api/
 │       ├── __init__.py
 │       └── v1/
@@ -429,9 +432,9 @@ backend/
 
 ### Phase 6: Final Verification & Documentation
 
-- [ ] Run full test suite against PostgreSQL: `uv run pytest -v`
-- [ ] Verify all new endpoints in Swagger UI (`/docs`)
-- [ ] Update `README.md` with v1.1 API changes
-- [ ] Update `.env.example` with any new environment variables
-- [ ] Archive `portfolio.db` (SQLite) — it is no longer the primary database
+- [x] Run full test suite: `uv run pytest -v` (28/28 tests passing)
+- [x] Verify all 13 endpoints in Swagger UI (`/docs`) / OpenAPI spec
+- [x] Update `README.md` with v1.1 API changes and architecture reference
+- [x] Update `.env.example` with all configuration and upload settings
+- [x] Archive `portfolio.db` (SQLite) — moved to `archive/portfolio.db.bak`
 

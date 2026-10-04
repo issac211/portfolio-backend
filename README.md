@@ -34,9 +34,11 @@ This backend is designed with a strong focus on clean architecture, security, an
 ```text
 backend/
 ├── alembic/              # Database migration versions
+├── archive/              # Archived SQLite database (portfolio.db.bak)
 ├── docs/                 # Implementation roadmap and specifications
-├── scripts/              # Data ETL and maintenance scripts
-│   └── migrate_sqlite_to_pg.py
+├── scripts/              # Automation and maintenance scripts
+│   ├── export_openapi.py # OpenAPI contract export utility
+│   └── migrate_sqlite_to_pg.py # SQLite to PostgreSQL ETL script
 ├── src/
 │   └── app/
 │       ├── api/          # Route handlers (Controllers)
@@ -122,13 +124,38 @@ uv run uvicorn app.main:app --app-dir src --reload
 ```
 The API will be available at `http://localhost:8000`.
 
-## API Documentation
+## API Reference & Contract (v1.1)
 
-FastAPI automatically generates interactive API documentation. 
-Once the server is running, navigate to:
-* **Swagger UI:** `http://localhost:8000/docs`
+FastAPI automatically generates interactive OpenAPI documentation at `/docs` (Swagger UI) and `/redoc`.
 
-*Note: To test protected endpoints (POST, PUT, DELETE), use the "Authorize" button in Swagger UI and log in using the credentials defined in your `.env` file.*
+### Endpoints Summary
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/profile/` | Public | Retrieves the active singleton personal profile |
+| `PUT` | `/api/v1/profile/` | Admin (JWT) | Upserts the profile; automatically reactivates soft-deleted singleton |
+| `DELETE` | `/api/v1/profile/` | Admin (JWT) | Soft deletes the personal profile (`is_active = False`) |
+| `POST` | `/api/v1/profile/upload-image` | Admin (JWT) | Uploads and associates an image with the profile |
+| `DELETE` | `/api/v1/profile/image` | Admin (JWT) | Resiliently unlinks image and sets `image_url = NULL` |
+| `GET` | `/api/v1/projects/` | Public | Lists all projects ordered by `display_order` |
+| `GET` | `/api/v1/projects/{id}` | Public | Retrieves a single project by ID (or 404) |
+| `POST` | `/api/v1/projects/` | Admin (JWT) | Creates a project (`summary`, optional `content`, `tags`) |
+| `PATCH` | `/api/v1/projects/{id}` | Admin (JWT) | Partial update of project details |
+| `DELETE` | `/api/v1/projects/{id}` | Admin (JWT) | Deletes a project and its associated image |
+| `POST` | `/api/v1/projects/{id}/upload-image` | Admin (JWT) | Uploads an image for a project |
+| `DELETE` | `/api/v1/projects/{id}/image` | Admin (JWT) | Resiliently unlinks project image |
+| `POST` | `/api/v1/auth/login` | Public | Authenticates admin and returns JWT Bearer token |
+
+### OpenAPI Contract-Driven Synchronization
+
+Whenever backend schemas, models, or endpoints are updated, export the updated OpenAPI contract to keep the frontend types strictly in sync:
+
+```bash
+uv run python scripts/export_openapi.py
+```
+*Destination: `frontend/api-contract.json` (Customizable via CLI arguments).*
+
+*Note: To test protected endpoints in Swagger UI, click the **Authorize** button at `http://localhost:8000/docs` and log in with your admin credentials.*
 
 ## Testing
 

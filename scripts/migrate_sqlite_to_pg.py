@@ -120,7 +120,10 @@ def migrate_data(sqlite_path: Path) -> None:
 
 def main() -> None:
     """Entry point for the ETL migration."""
-    sqlite_db_path = BASE_DIR / "portfolio.db"
+    archived_path = BASE_DIR / "archive" / "portfolio.db.bak"
+    sqlite_db_path = (
+        archived_path if archived_path.exists() else BASE_DIR / "portfolio.db"
+    )
     migrate_data(sqlite_db_path)
     logger.info("ETL SQLite -> PostgreSQL migration process completed.")
 
