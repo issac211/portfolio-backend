@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4"}
 
 
-def delete_old_file(file_url: str | None) -> None:
-    """
-    Deletes the old file from disk to prevent storage leaks.
+def delete_file(file_url: str | None) -> None:
+    """Deletes a file from disk to prevent storage leaks.
+
     Example file_url: "/uploads/profile/1234.jpg"
     """
     if not file_url:
@@ -37,6 +37,11 @@ def delete_old_file(file_url: str | None) -> None:
                     local_path.unlink()
                 except OSError as e:
                     logger.warning(e)
+
+
+def delete_old_file(file_url: str | None) -> None:
+    """Alias for delete_file for backwards compatibility."""
+    delete_file(file_url)
 
 
 def validate_upload_file(upload_file: UploadFile) -> str:

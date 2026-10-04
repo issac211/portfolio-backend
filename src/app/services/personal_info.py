@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import PersonalInfo
 from app.schemas import PersonalInfoCreate, PersonalInfoUpdate
 
-from .upload import save_upload_file, validate_upload_file
+from .upload import delete_file, save_upload_file, validate_upload_file
 
 
 class PersonalInfoService:
@@ -94,4 +94,23 @@ class PersonalInfoService:
         profile.image_url = file_url
         self.db.commit()
         self.db.refresh(profile)
+        return profile
+
+    def delete_image(self) -> PersonalInfo:
+        """Removes the profile image with resilient post-commit file cleanup.
+
+        1. Fetches the profile (active_only=False).
+        2. Sets image_url = None and commits DB transaction FIRST.
+        3. Calls delete_file only AFTER DB commit succeeds.
+        """
+        profile = self.get_profile(active_only=False)
+        old_image_url = profile.image_url
+        if not old_image_url:
+            return profile
+
+        profile.image_url = None
+        self.db.commit()
+        self.db.refresh(profile)
+
+        delete_file(old_image_url)
         return profile

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy import select
 
 from app.core import settings
@@ -179,3 +181,79 @@ def test_upsert_profile_cannot_manually_deactivate(admin_client):
     res = admin_client.get("/api/v1/profile/")
     assert res.status_code == 200
     assert res.json()["is_active"] is True
+
+
+def test_delete_profile_soft_delete(admin_client, client):
+    # 1. Create profile
+    admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "Soft", "last_name": "Delete"},
+    )
+    assert client.get("/api/v1/profile/").status_code == 200
+
+    # 2. Soft delete via DELETE /api/v1/profile/
+    delete_res = admin_client.delete("/api/v1/profile/")
+    assert delete_res.status_code == 204
+
+    # 3. Public GET returns 404
+    assert client.get("/api/v1/profile/").status_code == 404
+
+    # 4. Upsert reactivates singleton
+    upsert_res = admin_client.put(
+        "/api/v1/profile/",
+        json={"first_name": "Soft", "last_name": "Delete", "hero_title": "Reborn"},
+    )
+    assert upsert_res.status_code == 200
+    assert upsert_res.json()["is_active"] is True
+    assert client.get("/api/v1/profile/").status_code == 200
+
+
+def test_delete_profile_unauthorized(client):
+    assert client.delete("/api/v1/profile/").status_code == 401
+
+
+def test_delete_profile_not_found(admin_client):
+    # No profile created yet
+    res = admin_client.delete("/api/v1/profile/")
+    assert res.status_code == 404
+
+
+def test_delete_profile_image(admin_client):
+    # 1. Create profile and upload image
+    admin_client.put(
+        "/api/v1/profile/", json={"first_name": "Test", "last_name": "User"}
+    )
+    files = {"file": ("test_pic.jpg", b"fake image bytes", "image/jpeg")}
+    upload_res = admin_client.post("/api/v1/profile/upload-image", files=files)
+    assert upload_res.status_code == 200
+    img_url = upload_res.json()["image_url"]
+    assert img_url is not None
+
+    # Check file exists on disk
+    rel_path = img_url[len(settings.MEDIA_URL) :].lstrip("/")
+    file_on_disk = Path(settings.MEDIA_ROOT) / rel_path
+    assert file_on_disk.exists()
+
+    # 2. Delete profile image
+    del_res = admin_client.delete("/api/v1/profile/image")
+    assert del_res.status_code == 204
+
+    # 3. Verify DB image_url is None and file was unlinked
+    get_res = admin_client.get("/api/v1/profile/")
+    assert get_res.status_code == 200
+    assert get_res.json()["image_url"] is None
+    assert not file_on_disk.exists()
+
+    # 4. Idempotent deletion on profile with no image returns 204
+    second_del = admin_client.delete("/api/v1/profile/image")
+    assert second_del.status_code == 204
+
+
+def test_delete_profile_image_unauthorized(client):
+    assert client.delete("/api/v1/profile/image").status_code == 401
+
+
+def test_delete_profile_image_not_found(admin_client):
+    # No profile created yet
+    res = admin_client.delete("/api/v1/profile/image")
+    assert res.status_code == 404

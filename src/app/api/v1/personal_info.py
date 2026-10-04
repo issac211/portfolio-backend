@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.api.dependencies import get_current_admin, get_personal_info_service
 from app.models import PersonalInfo
@@ -28,6 +28,20 @@ def upsert_profile(
     return service.upsert_personal_info(info_in)
 
 
+@router.delete(
+    "/",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_current_admin)],
+)
+def delete_profile(
+    service: PersonalInfoService = Depends(get_personal_info_service),
+) -> None:
+    """
+    Soft deletes the personal profile by setting is_active = False.
+    """
+    service.soft_delete()
+
+
 @router.post(
     "/upload-image",
     response_model=PersonalInfoResponse,
@@ -42,3 +56,17 @@ def upload_profile_image(
     Uploads an image, saves it, and updates the profile's image_url.
     """
     return service.upload_image(file)
+
+
+@router.delete(
+    "/image",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_current_admin)],
+)
+def delete_profile_image(
+    service: PersonalInfoService = Depends(get_personal_info_service),
+) -> None:
+    """
+    Removes the personal profile image.
+    """
+    service.delete_image()

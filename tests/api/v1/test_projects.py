@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.core import settings
 
 
@@ -141,5 +143,58 @@ def test_upload_project_image_not_found(admin_client):
     # Send request to an ID that we know doesn't exist (e.g., 9999)
     response = admin_client.post("/api/v1/projects/9999/upload-image", files=files)
 
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+def test_delete_project_image(admin_client):
+    """Test deleting an image associated with an existing project."""
+    # 1. Create project
+    create_res = admin_client.post(
+        "/api/v1/projects/",
+        json={
+            "title": "Delete Image Project",
+            "summary": "Testing image deletion",
+        },
+    )
+    project_id = create_res.json()["id"]
+
+    # 2. Upload image
+    files = {"file": ("proj_pic.png", b"fake project bytes", "image/png")}
+    upload_res = admin_client.post(
+        f"/api/v1/projects/{project_id}/upload-image", files=files
+    )
+    assert upload_res.status_code == 200
+    img_url = upload_res.json()["image_url"]
+    assert img_url is not None
+
+    rel_path = img_url[len(settings.MEDIA_URL) :].lstrip("/")
+    file_on_disk = Path(settings.MEDIA_ROOT) / rel_path
+    assert file_on_disk.exists()
+
+    # 3. Delete image
+    delete_res = admin_client.delete(f"/api/v1/projects/{project_id}/image")
+    assert delete_res.status_code == 204
+
+    # 4. Verify DB image_url is None and file was unlinked
+    get_res = admin_client.get(f"/api/v1/projects/{project_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["image_url"] is None
+    assert not file_on_disk.exists()
+
+    # 5. Idempotent deletion on project with no image returns 204
+    second_delete = admin_client.delete(f"/api/v1/projects/{project_id}/image")
+    assert second_delete.status_code == 204
+
+
+def test_delete_project_image_unauthorized(client):
+    """Test unauthenticated request to delete project image returns 401."""
+    response = client.delete("/api/v1/projects/1/image")
+    assert response.status_code == 401
+
+
+def test_delete_project_image_not_found(admin_client):
+    """Test deleting image for non-existent project returns 404."""
+    response = admin_client.delete("/api/v1/projects/9999/image")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()

@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 from app.models import Project
 from app.schemas import ProjectCreate, ProjectUpdate
 
-from .upload import delete_old_file, save_upload_file, validate_upload_file
+from .upload import (
+    delete_file,
+    delete_old_file,
+    save_upload_file,
+    validate_upload_file,
+)
 
 
 class ProjectService:
@@ -133,4 +138,27 @@ class ProjectService:
         project.image_url = file_url
         self.db.commit()
         self.db.refresh(project)
+        return self._map_db_to_schema(project)
+
+    def delete_image(self, project_id: int) -> Project | None:
+        """Removes the project image with resilient post-commit file cleanup.
+
+        1. Finds the project by id.
+        2. Sets image_url = None and commits DB transaction FIRST.
+        3. Calls delete_file only AFTER DB commit succeeds.
+        """
+        statement = select(Project).where(Project.id == project_id)
+        project = self.db.scalar(statement)
+        if not project:
+            return None
+
+        old_image_url = project.image_url
+        if not old_image_url:
+            return self._map_db_to_schema(project)
+
+        project.image_url = None
+        self.db.commit()
+        self.db.refresh(project)
+
+        delete_file(old_image_url)
         return self._map_db_to_schema(project)

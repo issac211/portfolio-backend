@@ -121,20 +121,23 @@ backend/
 | `tags_csv` | String(255) | Yes | Comma-separated tags (renamed in Phase 4) |
 | `display_order` | Integer | No (default 0) | |
 
-### Current API Endpoints (v1.0)
+### Current API Endpoints (v1.1)
 
-| Method | Path | Auth |
-|---|---|---|
-| `GET` | `/api/profile/` | Public |
-| `PUT` | `/api/profile/` | Admin |
-| `POST` | `/api/profile/upload-image` | Admin |
-| `GET` | `/api/projects/` | Public |
-| `GET` | `/api/projects/{id}` | Public |
-| `POST` | `/api/projects/` | Admin |
-| `PATCH` | `/api/projects/{id}` | Admin |
-| `DELETE` | `/api/projects/{id}` | Admin |
-| `POST` | `/api/projects/{id}/upload-image` | Admin |
-| `POST` | `/api/auth/login` | Public |
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| `GET` | `/api/profile/` | Public | Active profile filter |
+| `PUT` | `/api/profile/` | Admin | Upsert with singleton reactivation |
+| `DELETE` | `/api/profile/` | Admin | Soft delete (`is_active = False`) |
+| `POST` | `/api/profile/upload-image` | Admin | |
+| `DELETE` | `/api/profile/image` | Admin | Resilient image removal |
+| `GET` | `/api/projects/` | Public | |
+| `GET` | `/api/projects/{id}` | Public | |
+| `POST` | `/api/projects/` | Admin | Accepts summary + content + tags |
+| `PATCH` | `/api/projects/{id}` | Admin | Partial update |
+| `DELETE` | `/api/projects/{id}` | Admin | |
+| `POST` | `/api/projects/{id}/upload-image` | Admin | |
+| `DELETE` | `/api/projects/{id}/image` | Admin | Resilient image removal |
+| `POST` | `/api/auth/login` | Public | |
 
 ---
 
@@ -185,18 +188,18 @@ backend/
 > 5. **Drop obsolete column:** `op.drop_column('projects', 'description')`
 
 > [!NOTE]
-> **Profile Soft Delete & Singleton Upsert Logic:**
-> - Add `is_active: Mapped[bool] = mapped_column(default=True)` to `PersonalInfo`.
-> - The `DELETE /api/profile` endpoint sets `is_active = False`.
-> - The `GET /api/profile/` endpoint must filter by `is_active == True`.
-> - **Singleton Reactivation:** Because `PersonalInfo` is a singleton, if a Profile was soft-deleted (`is_active = False`) and the Admin performs a `PUT /api/profile/` (Upsert), the logic must reactivate the existing record (`is_active = True`) and update it, rather than attempting to insert a new row which would cause a Primary Key / Singleton violation.
+> **Profile Soft Delete & Singleton Upsert Logic (Implemented in Phase 5):**
+> - `is_active: Mapped[bool] = mapped_column(default=True)` is enforced on `PersonalInfo`.
+> - The `DELETE /api/profile` endpoint executes `service.soft_delete()` (`is_active = False`).
+> - The `GET /api/profile/` endpoint filters by `is_active == True`.
+> - **Singleton Reactivation:** Because `PersonalInfo` is a singleton, if a profile was soft-deleted (`is_active = False`) and the Admin performs a `PUT /api/profile/` (Upsert), the logic reactivates the existing record (`is_active = True`) and updates it, preventing PK/singleton violations. Verified via automated tests.
 
 > [!NOTE]
-> **Image Deletion Endpoints (Resilient Deletion Order):** Both `DELETE /api/profile/image` and `DELETE /api/projects/{id}/image` must enforce transactional safety against race conditions and failures:
-> 1. The DB transaction (`image_url = NULL`) must be committed FIRST.
-> 2. The physical file `unlink()` in `services/upload.py` is executed ONLY AFTER the database commit succeeds, to prevent dangling pointers in case of a DB rollback.
-> 3. If file unlinking fails post-commit (e.g., file not found or I/O error), log a warning rather than rolling back the database transaction (orphaned disk files can be swept via background cleanup, whereas dangling DB pointers cause user-facing broken images and 404s).
-> 4. Return `204 No Content` on success.
+> **Image Deletion Endpoints (Resilient Deletion Order - Implemented in Phase 5):** Both `DELETE /api/profile/image` and `DELETE /api/projects/{id}/image` enforce transactional safety against race conditions and failures:
+> 1. The DB transaction (`image_url = NULL`) is committed FIRST.
+> 2. The physical file `unlink()` via `delete_file()` in `services/upload.py` is executed ONLY AFTER the database commit succeeds, preventing dangling pointers on DB rollback.
+> 3. If file unlinking fails post-commit (e.g., file not found or I/O error), a warning is logged rather than rolling back the database transaction.
+> 4. Endpoints return `204 No Content` on success. Fully verified via test suite.
 
 > [!NOTE]
 > **Domain Vocabulary Refactoring — `tech_stack` → `tags` (Alembic Rename Safety):**
@@ -248,8 +251,8 @@ backend/
 │   │   ├── dependencies.py
 │   │   └── v1/
 │   │       ├── auth.py
-│   │       ├── personal_info.py          [UPDATE] — DELETE /profile, DELETE /profile/image
-│   │       └── projects.py              [UPDATE] — DELETE /projects/{id}/image
+│   │       ├── personal_info.py          ✅ Done — DELETE /profile, DELETE /profile/image
+│   │       └── projects.py              ✅ Done — DELETE /projects/{id}/image
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── config.py                    ✅ Done — DATABASE_URL normalizer
@@ -265,10 +268,10 @@ backend/
 │   │   ├── personal_info.py             ✅ Done — new fields, Literal validation, is_active restricted to Response
 │   │   └── projects.py                 ✅ Done — summary + content fields
 │   └── services/
-│       ├── __init__.py                  [UPDATE] — export new service methods
-│       ├── personal_info.py             [UPDATE] — soft delete, image delete logic
-│       ├── projects.py                 [UPDATE] — image delete logic
-│       └── upload.py                   [UPDATE] — add delete_file utility
+│       ├── __init__.py                  ✅ Done — export service classes and delete_file
+│       ├── personal_info.py             ✅ Done — soft delete, image delete logic
+│       ├── projects.py                 ✅ Done — image delete logic
+│       └── upload.py                   ✅ Done — add delete_file utility
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py                      [UPDATE] — PostgreSQL test setup if needed
@@ -276,8 +279,8 @@ backend/
 │       ├── __init__.py
 │       └── v1/
 │           ├── __init__.py
-│           ├── test_personal_info.py     ✅ Done — tests for new fields, Literal validation, and soft-delete filtering
-│           └── test_projects.py         [UPDATE] — tests for image deletion + split fields
+│           ├── test_personal_info.py     ✅ Done — tests for new fields, Literal validation, soft-delete filtering, and image deletion
+│           └── test_projects.py         ✅ Done — tests for image deletion, tags rename, and split fields
 └── uploads/
     ├── profile/
     └── projects/
@@ -321,18 +324,18 @@ backend/
 
 | Method | Path | Auth | Status |
 |---|---|---|---|
-| `GET` | `/api/profile/` | Public | Existing — [UPDATE] filter `is_active` |
-| `PUT` | `/api/profile/` | Admin | Existing — [UPDATE] accept new fields |
+| `GET` | `/api/profile/` | Public | Existing — ✅ Done (filters `is_active`) |
+| `PUT` | `/api/profile/` | Admin | Existing — ✅ Done (accepts new fields & reactivates) |
 | `POST` | `/api/profile/upload-image` | Admin | Existing |
-| `DELETE` | `/api/profile/` | Admin | **NEW** — soft delete |
-| `DELETE` | `/api/profile/image` | Admin | **NEW** — remove profile image |
+| `DELETE` | `/api/profile/` | Admin | ✅ Done — soft delete |
+| `DELETE` | `/api/profile/image` | Admin | ✅ Done — remove profile image |
 | `GET` | `/api/projects/` | Public | Existing |
 | `GET` | `/api/projects/{id}` | Public | Existing |
 | `POST` | `/api/projects/` | Admin | Existing — ✅ Done (accepts summary+content) |
 | `PATCH` | `/api/projects/{id}` | Admin | Existing — ✅ Done (accepts summary+content) |
 | `DELETE` | `/api/projects/{id}` | Admin | Existing |
 | `POST` | `/api/projects/{id}/upload-image` | Admin | Existing |
-| `DELETE` | `/api/projects/{id}/image` | Admin | **NEW** — remove project image |
+| `DELETE` | `/api/projects/{id}/image` | Admin | ✅ Done — remove project image |
 | `POST` | `/api/auth/login` | Public | Existing |
 
 ---
@@ -403,22 +406,22 @@ backend/
 
 ### Phase 5: Image Deletion & Profile Deletion Endpoints
 
-- [ ] Add `delete_file` utility function to `services/upload.py` — physically unlinks a file given its URL path
-- [ ] **Profile Image Deletion (Resilient Deletion):**
-  - [ ] Add `delete_image` method to `services/personal_info.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds (prevents dangling pointers on DB rollback)
-  - [ ] Add `DELETE /api/profile/image` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
-- [ ] **Project Image Deletion (Resilient Deletion):**
-  - [ ] Add `delete_image` method to `services/projects.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds
-  - [ ] Add `DELETE /api/projects/{id}/image` endpoint in `api/v1/projects.py` (Admin-only, returns 204)
-- [ ] **Profile Soft Delete & Singleton Upsert:**
-  - [ ] Add `soft_delete` method to `services/personal_info.py` — sets `is_active = False`
-  - [ ] Update `upsert_personal_info` in `services/personal_info.py` — handle singleton reactivation: if profile was soft-deleted (`is_active = False`) and Admin performs `PUT /api/profile/`, reactivate (`is_active = True`) and update existing record rather than inserting a new row (prevents PK/singleton violation)
-  - [ ] Add `DELETE /api/profile/` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
-- [ ] Update `services/__init__.py` — export new methods
-- [ ] Add tests for `DELETE /api/profile/image` in `test_personal_info.py` (verify commit happens before unlink)
-- [ ] Add tests for `DELETE /api/projects/{id}/image` in `test_projects.py`
-- [ ] Add tests for `DELETE /api/profile/` (soft delete) and subsequent `PUT /api/profile/` (singleton reactivation) in `test_personal_info.py`
-- [ ] Verify: `uv run pytest -v`
+- [x] Add `delete_file` utility function to `services/upload.py` — physically unlinks a file given its URL path
+- [x] **Profile Image Deletion (Resilient Deletion):**
+  - [x] Add `delete_image` method to `services/personal_info.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds (prevents dangling pointers on DB rollback)
+  - [x] Add `DELETE /api/profile/image` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
+- [x] **Project Image Deletion (Resilient Deletion):**
+  - [x] Add `delete_image` method to `services/projects.py` — commits DB transaction (`image_url = NULL`) FIRST; calls `delete_file` ONLY AFTER database commit succeeds
+  - [x] Add `DELETE /api/projects/{id}/image` endpoint in `api/v1/projects.py` (Admin-only, returns 204)
+- [x] **Profile Soft Delete & Singleton Upsert:**
+  - [x] Add `soft_delete` method to `services/personal_info.py` — sets `is_active = False`
+  - [x] Update `upsert_personal_info` in `services/personal_info.py` — handle singleton reactivation: if profile was soft-deleted (`is_active = False`) and Admin performs `PUT /api/profile/`, reactivate (`is_active = True`) and update existing record rather than inserting a new row (prevents PK/singleton violation)
+  - [x] Add `DELETE /api/profile/` endpoint in `api/v1/personal_info.py` (Admin-only, returns 204)
+- [x] Update `services/__init__.py` — export new methods
+- [x] Add tests for `DELETE /api/profile/image` in `test_personal_info.py` (verify commit happens before unlink)
+- [x] Add tests for `DELETE /api/projects/{id}/image` in `test_projects.py`
+- [x] Add tests for `DELETE /api/profile/` (soft delete) and subsequent `PUT /api/profile/` (singleton reactivation) in `test_personal_info.py`
+- [x] Verify: `uv run pytest -v`
 
 ### Phase 6: Final Verification & Documentation
 

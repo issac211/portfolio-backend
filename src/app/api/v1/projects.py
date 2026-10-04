@@ -95,3 +95,22 @@ def upload_project_image(
         )
 
     return project
+
+
+@router.delete(
+    "/{project_id}/image",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_current_admin)],
+)
+def delete_project_image(
+    project_id: int,
+    service: ProjectService = Depends(get_project_service),
+) -> None:
+    """
+    Removes an image associated with a specific project.
+    """
+    project = service.delete_image(project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
