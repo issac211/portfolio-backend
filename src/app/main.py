@@ -10,7 +10,10 @@ from app.core import settings
 # Create uploads directory if it doesn't exist
 Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title=settings.PROJECT_NAME)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.PROJECT_VERSION,
+)
 
 # Define the frontend origins that are allowed to make requests
 origins = [

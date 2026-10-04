@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Portfolio API"
+    PROJECT_VERSION: str = "1.1.0"
     DATABASE_URL: str = "sqlite:///portfolio.db"
 
     @field_validator("DATABASE_URL", mode="after")
