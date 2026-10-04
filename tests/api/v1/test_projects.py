@@ -10,7 +10,8 @@ def test_get_empty_projects(client):
 def test_create_project(admin_client):
     payload = {
         "title": "Portfolio Web App",
-        "description": "My personal portfolio built with React and FastAPI",
+        "summary": "My personal portfolio built with React and FastAPI",
+        "content": "# Deep Dive\nDetailed markdown case study.",
         "tech_stack": ["React", "FastAPI", "SQLite"],
         "github_url": "https://github.com/itzik/portfolio",
     }
@@ -19,22 +20,41 @@ def test_create_project(admin_client):
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "Portfolio Web App"
+    assert data["summary"] == "My personal portfolio built with React and FastAPI"
+    assert data["content"] == "# Deep Dive\nDetailed markdown case study."
     assert data["tech_stack"] == ["React", "FastAPI", "SQLite"]
     assert data["display_order"] == 1  # Should auto-increment to 1
     assert "id" in data
 
 
+def test_create_project_summary_too_long(admin_client):
+    payload = {
+        "title": "Invalid Project",
+        "summary": "A" * 301,  # Max length is 300
+    }
+    response = admin_client.post("/api/v1/projects/", json=payload)
+    assert response.status_code == 422
+
+
 def test_get_project_by_id(client, admin_client):
     # Create project first
     create_res = admin_client.post(
-        "/api/v1/projects/", json={"title": "Test Project", "description": "Desc"}
+        "/api/v1/projects/",
+        json={
+            "title": "Test Project",
+            "summary": "Project summary",
+            "content": "Rich content description",
+        },
     )
     project_id = create_res.json()["id"]
 
     # Fetch it
     response = client.get(f"/api/v1/projects/{project_id}")
     assert response.status_code == 200
-    assert response.json()["title"] == "Test Project"
+    data = response.json()
+    assert data["title"] == "Test Project"
+    assert data["summary"] == "Project summary"
+    assert data["content"] == "Rich content description"
 
 
 def test_update_project(admin_client):
@@ -43,7 +63,8 @@ def test_update_project(admin_client):
         "/api/v1/projects/",
         json={
             "title": "Old Title",
-            "description": "Old Desc",
+            "summary": "Old Summary",
+            "content": "Old Content",
             "tech_stack": ["Python"],
         },
     )
@@ -58,14 +79,15 @@ def test_update_project(admin_client):
     assert patch_res.status_code == 200
     data = patch_res.json()
     assert data["title"] == "New Title"
-    assert data["description"] == "Old Desc"  # Should remain unchanged
+    assert data["summary"] == "Old Summary"  # Should remain unchanged
+    assert data["content"] == "Old Content"  # Should remain unchanged
     assert data["tech_stack"] == ["Python", "Rust"]
 
 
 def test_delete_project(admin_client):
     # Create project
     create_res = admin_client.post(
-        "/api/v1/projects/", json={"title": "Delete Me", "description": "Desc"}
+        "/api/v1/projects/", json={"title": "Delete Me", "summary": "To be deleted"}
     )
     project_id = create_res.json()["id"]
 
@@ -79,7 +101,7 @@ def test_delete_project(admin_client):
 
 
 def test_create_project_unauthorized(client):
-    response = client.post("/api/v1/projects/", json={"title": "Hacked"})
+    response = client.post("/api/v1/projects/", json={"title": "Hacked", "summary": "Hack"})
     assert response.status_code == 401
 
 
@@ -90,7 +112,7 @@ def test_upload_project_image(admin_client):
         "/api/v1/projects/",
         json={
             "title": "Image Upload Test Project",
-            "description": "Testing file uploads",
+            "summary": "Testing file uploads",
         },
     )
     project_id = create_res.json()["id"]

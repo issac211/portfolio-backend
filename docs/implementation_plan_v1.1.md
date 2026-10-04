@@ -37,7 +37,8 @@ backend/
 │   ├── script.py.mako
 │   └── versions/
 │       ├── a999514ee9b4_initial_tables.py
-│       └── d086cbd3eed6_expand_personal_info_model.py
+│       ├── d086cbd3eed6_expand_personal_info_model.py
+│       └── 631310bbdef1_split_project_description_into_summary_.py
 ├── docs/
 │   └── implementation_plan_v1.1.md       # Implementation tracking
 ├── scripts/
@@ -105,18 +106,19 @@ backend/
 | `is_active` | Boolean | No | Added in Phase 2, `server_default=true` |
 | `status_indicator` | String(20) | Yes | Added in Phase 2, `server_default="neutral"` |
 
-### Current `Project` Schema (v1.0)
+### Current `Project` Schema (v1.1)
 
-| Column | Type | Nullable |
-|---|---|---|
-| `id` | Integer (PK) | No |
-| `title` | String(100) | No |
-| `description` | Text | No |
-| `github_url` | String(255) | Yes |
-| `live_url` | String(255) | Yes |
-| `image_url` | String(255) | Yes |
-| `tech_stack_csv` | String(255) | Yes |
-| `display_order` | Integer | No (default 0) |
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | Integer (PK) | No | Auto-increment sequence |
+| `title` | String(100) | No | Indexed |
+| `summary` | String(300) | No | Split from description in Phase 3 |
+| `content` | Text | Yes | Added in Phase 3 |
+| `github_url` | String(255) | Yes | |
+| `live_url` | String(255) | Yes | |
+| `image_url` | String(255) | Yes | |
+| `tech_stack_csv` | String(255) | Yes | Comma-separated tags (renamed in Phase 4) |
+| `display_order` | Integer | No (default 0) | |
 
 ### Current API Endpoints (v1.0)
 
@@ -174,7 +176,7 @@ backend/
 
 > [!IMPORTANT]
 > **`Project` Model — Description Split (Safe Column Split - Zero NOT NULL Errors):**
-> Splitting `description` into `summary` (VARCHAR(300), NOT NULL) and `content` (TEXT, nullable) requires a strict 5-step zero-downtime migration sequence in Alembic to prevent NOT NULL constraint violations on existing rows:
+> Splitting `description` into `summary` (VARCHAR(300), NOT NULL) and `content` (TEXT, nullable) was successfully executed in revision `631310bbdef1` using a strict 5-step zero-downtime migration sequence in Alembic to prevent NOT NULL constraint violations on existing rows:
 > 1. **Add `summary` as nullable:** `op.add_column('projects', sa.Column('summary', sa.String(length=300), nullable=True))`
 > 2. **Execute Data Migration:** `op.execute("UPDATE projects SET summary = LEFT(description, 300)")` to backfill existing data safely.
 > 3. **Add `content` column:** `op.add_column('projects', sa.Column('content', sa.Text(), nullable=True))`
@@ -229,7 +231,7 @@ backend/
 │   └── versions/
 │       ├── a999514ee9b4_initial_tables.py
 │       ├── d086cbd3eed6_expand_personal_info_model.py ✅ Done — hero_title, availability, short_bio, socials, is_active, status_indicator
-│       ├── xxxx_split_project_desc.py    [NEW] — description → summary + content
+│       ├── 631310bbdef1_split_project_description_into_summary_.py ✅ Done — description → summary + content
 │       └── xxxx_rename_tech_stack_to_tags.py [NEW] — tech_stack_csv → tags_csv
 ├── docs/
 │   └── implementation_plan_v1.1.md       ✅ Done — updated roadmap
@@ -254,12 +256,12 @@ backend/
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── personal_info.py             ✅ Done — expanded model with marketing, social, and state columns
-│   │   └── projects.py                 [UPDATE] — summary + content
+│   │   └── projects.py                 ✅ Done — summary + content
 │   ├── schemas/
 │   │   ├── __init__.py                  ✅ Done — export concrete schemas
 │   │   ├── auth.py
 │   │   ├── personal_info.py             ✅ Done — new fields, Literal validation, is_active restricted to Response
-│   │   └── projects.py                 [UPDATE] — summary + content fields
+│   │   └── projects.py                 ✅ Done — summary + content fields
 │   └── services/
 │       ├── __init__.py                  [UPDATE] — export new service methods
 │       ├── personal_info.py             [UPDATE] — soft delete, image delete logic
@@ -305,8 +307,8 @@ backend/
 |---|---|---|---|
 | `id` | Integer (PK) | No | Existing |
 | `title` | String(100) | No | Existing |
-| `summary` | String(300) | No | **RENAMED** (was `description`) |
-| `content` | Text | Yes | **NEW** |
+| `summary` | String(300) | No | ✅ Done — RENAMED (was `description`) |
+| `content` | Text | Yes | ✅ Done — NEW |
 | `github_url` | String(255) | Yes | Existing |
 | `live_url` | String(255) | Yes | Existing |
 | `image_url` | String(255) | Yes | Existing |
@@ -324,8 +326,8 @@ backend/
 | `DELETE` | `/api/profile/image` | Admin | **NEW** — remove profile image |
 | `GET` | `/api/projects/` | Public | Existing |
 | `GET` | `/api/projects/{id}` | Public | Existing |
-| `POST` | `/api/projects/` | Admin | Existing — [UPDATE] accept summary+content |
-| `PATCH` | `/api/projects/{id}` | Admin | Existing — [UPDATE] accept summary+content |
+| `POST` | `/api/projects/` | Admin | Existing — ✅ Done (accepts summary+content) |
+| `PATCH` | `/api/projects/{id}` | Admin | Existing — ✅ Done (accepts summary+content) |
 | `DELETE` | `/api/projects/{id}` | Admin | Existing |
 | `POST` | `/api/projects/{id}/upload-image` | Admin | Existing |
 | `DELETE` | `/api/projects/{id}/image` | Admin | **NEW** — remove project image |
@@ -367,22 +369,22 @@ backend/
 
 ### Phase 3: Project Description Split (Summary vs. Content)
 
-- [ ] Update `models/projects.py`: rename `description` to `summary` (`Mapped[str] = mapped_column(String(300), nullable=False)`) and add `content` (`Mapped[str | None] = mapped_column(Text, nullable=True)`)
-- [ ] Generate Alembic revision: `uv run alembic revision -m "split project description into summary and content"`
-- [ ] Implement the safe 5-step Alembic migration sequence in the revision to prevent NOT NULL errors:
+- [x] Update `models/projects.py`: rename `description` to `summary` (`Mapped[str] = mapped_column(String(300), nullable=False)`) and add `content` (`Mapped[str | None] = mapped_column(Text, nullable=True)`)
+- [x] Generate Alembic revision: `uv run alembic revision -m "split project description into summary and content"`
+- [x] Implement the safe 5-step Alembic migration sequence in the revision to prevent NOT NULL errors:
   1. `op.add_column('projects', sa.Column('summary', sa.String(length=300), nullable=True))`
   2. Data migration: `op.execute("UPDATE projects SET summary = LEFT(description, 300)")`
   3. `op.add_column('projects', sa.Column('content', sa.Text(), nullable=True))`
   4. `op.alter_column('projects', 'summary', nullable=False)`
   5. `op.drop_column('projects', 'description')`
-- [ ] Apply migration: `uv run alembic upgrade head`
-- [ ] Update `schemas/projects.py` — replace `description` with `summary` + `content` in all schema classes
-- [ ] Update `services/projects.py` — adjust create/update logic for new fields
-- [ ] Update `api/v1/projects.py` — no route changes needed (schemas handle it)
-- [ ] Update `schemas/__init__.py` — verify exports
-- [ ] Update tests in `tests/api/v1/test_projects.py` for `summary` + `content`
-- [ ] Verify: `uv run pytest -v`
-- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `summary` + `content` fields
+- [x] Apply migration: `uv run alembic upgrade head`
+- [x] Update `schemas/projects.py` — replace `description` with `summary` + `content` in all schema classes
+- [x] Update `services/projects.py` — adjust create/update logic for new fields
+- [x] Update `api/v1/projects.py` — no route changes needed (schemas handle it)
+- [x] Update `schemas/__init__.py` — verify exports
+- [x] Update tests in `tests/api/v1/test_projects.py` for `summary` + `content`
+- [x] Verify: `uv run pytest -v`
+- [x] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `summary` + `content` fields
 
 ### Phase 4: Domain Vocabulary Refactoring (Tech Stack → Tags)
 

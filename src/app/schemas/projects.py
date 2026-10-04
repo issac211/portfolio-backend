@@ -3,7 +3,8 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
-    description: str = Field(..., min_length=1, max_length=2000)
+    summary: str = Field(..., min_length=1, max_length=300)
+    content: str | None = None
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
 
@@ -19,7 +20,8 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=100)
-    description: str | None = Field(default=None, min_length=1, max_length=2000)
+    summary: str | None = Field(default=None, min_length=1, max_length=300)
+    content: str | None = None
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
     tech_stack: list[str] | None = None

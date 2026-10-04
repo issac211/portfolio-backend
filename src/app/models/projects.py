@@ -9,7 +9,8 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    summary: Mapped[str] = mapped_column(String(300), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
     github_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     live_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
