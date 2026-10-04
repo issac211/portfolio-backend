@@ -38,7 +38,8 @@ backend/
 │   └── versions/
 │       ├── a999514ee9b4_initial_tables.py
 │       ├── d086cbd3eed6_expand_personal_info_model.py
-│       └── 631310bbdef1_split_project_description_into_summary_.py
+│       ├── 631310bbdef1_split_project_description_into_summary_.py
+│       └── af22ec542233_rename_tech_stack_csv_to_tags_csv.py
 ├── docs/
 │   └── implementation_plan_v1.1.md       # Implementation tracking
 ├── scripts/
@@ -117,7 +118,7 @@ backend/
 | `github_url` | String(255) | Yes | |
 | `live_url` | String(255) | Yes | |
 | `image_url` | String(255) | Yes | |
-| `tech_stack_csv` | String(255) | Yes | Comma-separated tags (renamed in Phase 4) |
+| `tags_csv` | String(255) | Yes | Comma-separated tags (renamed in Phase 4) |
 | `display_order` | Integer | No (default 0) | |
 
 ### Current API Endpoints (v1.0)
@@ -199,12 +200,13 @@ backend/
 
 > [!NOTE]
 > **Domain Vocabulary Refactoring — `tech_stack` → `tags` (Alembic Rename Safety):**
-> - **Model:** Rename `tech_stack_csv` → `tags_csv` in the `Project` SQLAlchemy model. The underlying storage mechanism (comma-separated string) remains unchanged in v1.1.
-> - **Schemas/API:** Rename `tech_stack: list[str] | None` → `tags: list[str] | None` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, and `ProjectResponse`. The CSV ↔ list serialization logic in the service layer must update its field references accordingly.
-> - **Alembic Rename Safety:** Alembic's `--autogenerate` does NOT detect column renames by default; it generates a destructive `op.drop_column` followed by `op.add_column`, leading to silent data loss. The migration MUST explicitly use:
+> - **Model:** Renamed `tech_stack_csv` → `tags_csv` in the `Project` SQLAlchemy model. The underlying storage mechanism (comma-separated string) remains unchanged in v1.1.
+> - **Schemas/API:** Renamed `tech_stack: list[str] | None` → `tags: list[str] | None` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, and `ProjectResponse`. The CSV ↔ list serialization logic in the service layer references `tags_csv` / `tags`.
+> - **Alembic Rename Safety:** Executed via revision `af22ec542233` explicitly using:
 >   ```python
 >   op.alter_column('projects', 'tech_stack_csv', new_column_name='tags_csv')
 >   ```
+>   This prevents Alembic `--autogenerate` from running a destructive drop/add operation that would lead to data loss.
 > - **Rationale:** "Tags" generalizes the concept to include project status ("WIP", "Open Source"), categories, and technologies under a single vocabulary.
 
 > [!NOTE]
@@ -232,7 +234,7 @@ backend/
 │       ├── a999514ee9b4_initial_tables.py
 │       ├── d086cbd3eed6_expand_personal_info_model.py ✅ Done — hero_title, availability, short_bio, socials, is_active, status_indicator
 │       ├── 631310bbdef1_split_project_description_into_summary_.py ✅ Done — description → summary + content
-│       └── xxxx_rename_tech_stack_to_tags.py [NEW] — tech_stack_csv → tags_csv
+│       └── af22ec542233_rename_tech_stack_csv_to_tags_csv.py ✅ Done — tech_stack_csv → tags_csv
 ├── docs/
 │   └── implementation_plan_v1.1.md       ✅ Done — updated roadmap
 ├── scripts/
@@ -312,7 +314,7 @@ backend/
 | `github_url` | String(255) | Yes | Existing |
 | `live_url` | String(255) | Yes | Existing |
 | `image_url` | String(255) | Yes | Existing |
-| `tags_csv` | String(255) | Yes | **RENAMED** (was `tech_stack_csv`) |
+| `tags_csv` | String(255) | Yes | ✅ Done — RENAMED (was `tech_stack_csv`) |
 | `display_order` | Integer | No (default 0) | Existing |
 
 ### Target API Endpoints (v1.1)
@@ -388,16 +390,16 @@ backend/
 
 ### Phase 4: Domain Vocabulary Refactoring (Tech Stack → Tags)
 
-- [ ] Rename `tech_stack_csv` → `tags_csv` in `models/projects.py`
-- [ ] Generate Alembic migration: `uv run alembic revision -m "rename tech_stack_csv to tags_csv"`
-- [ ] Explicitly implement `op.alter_column('projects', 'tech_stack_csv', new_column_name='tags_csv')` to prevent Alembic from executing a destructive drop/add operation
-- [ ] Apply migration: `uv run alembic upgrade head`
-- [ ] Update `schemas/projects.py` — rename `tech_stack` → `tags` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, `ProjectResponse`
-- [ ] Update `services/projects.py` — adjust CSV ↔ list serialization to reference `tags_csv` / `tags` instead of `tech_stack_csv` / `tech_stack`
-- [ ] Update `schemas/__init__.py` — verify exports (no new schemas, just field renames)
-- [ ] Update tests in `tests/api/v1/test_projects.py` — replace all `tech_stack` references with `tags`
-- [ ] Verify: `uv run pytest -v`
-- [ ] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `tags` rename
+- [x] Rename `tech_stack_csv` → `tags_csv` in `models/projects.py`
+- [x] Generate Alembic migration: `uv run alembic revision -m "rename tech_stack_csv to tags_csv"`
+- [x] Explicitly implement `op.alter_column('projects', 'tech_stack_csv', new_column_name='tags_csv')` to prevent Alembic from executing a destructive drop/add operation
+- [x] Apply migration: `uv run alembic upgrade head`
+- [x] Update `schemas/projects.py` — rename `tech_stack` → `tags` in `ProjectBase`, `ProjectCreate`, `ProjectUpdate`, `ProjectResponse`
+- [x] Update `services/projects.py` — adjust CSV ↔ list serialization to reference `tags_csv` / `tags` instead of `tech_stack_csv` / `tech_stack`
+- [x] Update `schemas/__init__.py` — verify exports (no new schemas, just field renames)
+- [x] Update tests in `tests/api/v1/test_projects.py` — replace all `tech_stack` references with `tags`
+- [x] Verify: `uv run pytest -v`
+- [x] **API Contract Sync:** Export updated OpenAPI spec to `frontend/api-contract.json` — reflects `tags` rename
 
 ### Phase 5: Image Deletion & Profile Deletion Endpoints
 

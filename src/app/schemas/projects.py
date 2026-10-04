@@ -8,8 +8,8 @@ class ProjectBase(BaseModel):
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
 
-    tech_stack: list[str] | None = Field(
-        default=None, description="List of technologies used"
+    tags: list[str] | None = Field(
+        default=None, description="List of tags / technologies used"
     )
     display_order: int | None = Field(default=None, ge=0)
 
@@ -24,7 +24,7 @@ class ProjectUpdate(BaseModel):
     content: str | None = None
     github_url: HttpUrl | None = None
     live_url: HttpUrl | None = None
-    tech_stack: list[str] | None = None
+    tags: list[str] | None = None
     display_order: int | None = Field(default=None, ge=0)
 
 

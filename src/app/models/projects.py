@@ -14,7 +14,6 @@ class Project(Base):
     github_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     live_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Note: For tech_stack (a list of strings), SQLite doesn't natively support arrays.
-    # A simple approach for this scale is saving it as a comma-separated string.
-    tech_stack_csv: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Note: For tags (a list of strings), comma-separated string for compatibility.
+    tags_csv: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

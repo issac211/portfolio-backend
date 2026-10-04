@@ -12,7 +12,7 @@ def test_create_project(admin_client):
         "title": "Portfolio Web App",
         "summary": "My personal portfolio built with React and FastAPI",
         "content": "# Deep Dive\nDetailed markdown case study.",
-        "tech_stack": ["React", "FastAPI", "SQLite"],
+        "tags": ["React", "FastAPI", "PostgreSQL"],
         "github_url": "https://github.com/itzik/portfolio",
     }
     response = admin_client.post("/api/v1/projects/", json=payload)
@@ -22,7 +22,7 @@ def test_create_project(admin_client):
     assert data["title"] == "Portfolio Web App"
     assert data["summary"] == "My personal portfolio built with React and FastAPI"
     assert data["content"] == "# Deep Dive\nDetailed markdown case study."
-    assert data["tech_stack"] == ["React", "FastAPI", "SQLite"]
+    assert data["tags"] == ["React", "FastAPI", "PostgreSQL"]
     assert data["display_order"] == 1  # Should auto-increment to 1
     assert "id" in data
 
@@ -65,7 +65,7 @@ def test_update_project(admin_client):
             "title": "Old Title",
             "summary": "Old Summary",
             "content": "Old Content",
-            "tech_stack": ["Python"],
+            "tags": ["Python"],
         },
     )
     project_id = create_res.json()["id"]
@@ -73,7 +73,7 @@ def test_update_project(admin_client):
     # Patch it (Partial update)
     patch_res = admin_client.patch(
         f"/api/v1/projects/{project_id}",
-        json={"title": "New Title", "tech_stack": ["Python", "Rust"]},
+        json={"title": "New Title", "tags": ["Python", "Rust"]},
     )
 
     assert patch_res.status_code == 200
@@ -81,7 +81,7 @@ def test_update_project(admin_client):
     assert data["title"] == "New Title"
     assert data["summary"] == "Old Summary"  # Should remain unchanged
     assert data["content"] == "Old Content"  # Should remain unchanged
-    assert data["tech_stack"] == ["Python", "Rust"]
+    assert data["tags"] == ["Python", "Rust"]
 
 
 def test_delete_project(admin_client):

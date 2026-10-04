@@ -15,10 +15,10 @@ class ProjectService:
     def _map_db_to_schema(self, db_project: Project) -> Project:
         """Helper to prepare the SQLAlchemy model for Pydantic serialization"""
         # Convert CSV string back to Python list
-        if db_project.tech_stack_csv:
-            db_project.tech_stack = db_project.tech_stack_csv.split(",")
+        if db_project.tags_csv:
+            db_project.tags = db_project.tags_csv.split(",")
         else:
-            db_project.tech_stack = []
+            db_project.tags = []
         return db_project
 
     def get_all_projects(self) -> list[Project]:
@@ -36,10 +36,10 @@ class ProjectService:
     def create_project(self, project_data: ProjectCreate) -> Project:
         data_dict = project_data.model_dump()
 
-        # 1. Handle Tech Stack (List -> CSV)
-        tech_stack_list = data_dict.pop("tech_stack", [])
-        data_dict["tech_stack_csv"] = (
-            ",".join(tech_stack_list) if tech_stack_list else None
+        # 1. Handle Tags (List -> CSV)
+        tags_list = data_dict.pop("tags", [])
+        data_dict["tags_csv"] = (
+            ",".join(tags_list) if tags_list else None
         )
 
         # 2. Handle HttpUrl conversion to string for SQLite
@@ -72,11 +72,11 @@ class ProjectService:
         # exclude_unset=True guarantees we only process fields the client actually sent
         update_data = project_data.model_dump(exclude_unset=True)
 
-        # Handle Tech Stack (List -> CSV)
-        if "tech_stack" in update_data:
-            tech_stack_list = update_data.pop("tech_stack")
-            update_data["tech_stack_csv"] = (
-                ",".join(tech_stack_list) if tech_stack_list else None
+        # Handle Tags (List -> CSV)
+        if "tags" in update_data:
+            tags_list = update_data.pop("tags")
+            update_data["tags_csv"] = (
+                ",".join(tags_list) if tags_list else None
             )
 
         # Handle HttpUrl conversion
