@@ -1,0 +1,41 @@
+# Version Control
+.git/
+.gitignore
+
+# Python Bytecode and Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Local Virtual Environments (prevents copying host-specific OS binaries)
+.venv/
+env/
+venv/
+
+# Secrets and Local Configurations (injected at runtime via env_file/secrets manager)
+.env
+.env.*
+!.env.example
+
+# Local SQLite Databases and Backups
+*.db
+*.db.bak
+*.sqlite3
+archive/
+
+# Uploaded Files (mounted as persistent volume; not baked into immutable image)
+uploads/
+
+# Documentation, Editor Configurations, and Tests
+docs/
+.vscode/
+.idea/
+tests/
+
+# Temporary Files and System Artifacts
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

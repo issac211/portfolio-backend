@@ -79,4 +79,11 @@ After completing **each step** in the project roadmap, the AI MUST update `docs/
   - **Framework Primitives (FastAPI):** When FastAPI idioms trigger linter rules (e.g., `B008` for `Depends`, `File`, `Query`, or `Path` default arguments), configure Ruff appropriately (e.g., `extend-immutable-calls` in `pyproject.toml`) instead of breaking route signatures.
   - **Side-Effect & Discovery Imports (Alembic / Pytest):** If imports are required for model registration (`Base.metadata`) or fixture discovery (e.g., `F401`), protect them explicitly with `# noqa: F401` or standard `__all__` re-exports rather than deleting them.
   - **Defensive Error Handling:** If broad exceptions are flagged (`BLE001`, `S110`), narrow the scope to concrete exceptions (e.g., `OSError`) and add structured logging (`logging.warning(e)`) rather than swallowing exceptions or removing safety boundaries.
-- **Architectural Integrity First:** Always ensure that resolving lint diagnostics preserves clean design, API contracts, and runtime safety.
+- **Architectural Integrity First:** Always ensure that resolving lint diagnostics preserves clean design, API contracts, and runtime safety.
+
+## 9. Containerization & Docker DevOps Protocol
+
+- **Orchestration & Workflow:** Use `docker compose` for local containerized development and `Dockerfile` for standalone production artifacts.
+- **Dependency Caching Integrity:** Maintain `pyproject.toml` and `uv.lock` in isolated early layers before copying application code (`src/`). Never copy host virtual environments (`.venv`) into the build context (enforced via `.dockerignore`).
+- **Volume & Persistence Boundaries:** Ensure local uploads (`./uploads:/app/uploads`) are mounted persistently to prevent data loss across container lifecycle resets. Bind mount `./src:/app/src` for live hot-reload during development.
+- **Container In-Flight Commands:** When operating within a running container environment, execute migrations and administrative CLI utilities via `docker compose exec backend <command>` (e.g. `docker compose exec backend alembic upgrade head`).

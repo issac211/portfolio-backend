@@ -47,7 +47,10 @@ backend/
 │       ├── schemas/      # Pydantic validation schemas
 │       └── services/     # Business logic (Services)
 ├── tests/                # Pytest integration tests
+├── .dockerignore         # Docker build context ignore rules
 ├── .env                  # Environment variables (Ignored in Git)
+├── docker-compose.yml    # Local development container orchestration
+├── Dockerfile            # Multi-stage production container definition
 ├── pyproject.toml        # Dependencies and project metadata
 └── README.md
 ```
@@ -118,11 +121,29 @@ uv run python scripts/migrate_sqlite_to_pg.py
 > When rows with explicit IDs (`id=1, 2, ...`) are transferred into PostgreSQL, the underlying `SERIAL`/`IDENTITY` sequence counters do not automatically advance. The ETL script executes `SELECT setval(pg_get_serial_sequence(...))` for every table, ensuring that subsequent `POST` requests create new records without encountering `UniqueViolation` primary key collisions.
 
 ### 4. Run the Development Server
-Start the FastAPI application:
+
+#### Option A: Direct Local Execution (via `uv`)
 ```bash
 uv run uvicorn app.main:app --app-dir src --reload
 ```
 The API will be available at `http://localhost:8000`.
+
+#### Option B: Containerized Execution (via Docker Compose)
+To run the backend inside an isolated Linux container with live hot-reload and persistent local media uploads:
+
+```bash
+# Build and start container in detached mode
+docker compose up --build -d
+
+# Stream logs
+docker compose logs -f backend
+
+# Run database migrations inside the running container
+docker compose exec backend alembic upgrade head
+
+# Tear down the container
+docker compose down
+```
 
 ## API Reference & Contract (v1.1)
 

@@ -26,6 +26,9 @@ backend/
 ├── .env.example
 ├── .python-version
 ├── alembic.ini
+├── .dockerignore                         # Docker build context exclusions
+├── docker-compose.yml                    # Local Docker Compose environment
+├── Dockerfile                            # Production container definition
 ├── GEMINI.md
 ├── pyproject.toml
 ├── README.md
@@ -230,6 +233,9 @@ backend/
 ├── .env.example                          ✅ Done — documented PostgreSQL connection template
 ├── .python-version
 ├── alembic.ini                           ✅ Done — dynamic override via settings.DATABASE_URL
+├── .dockerignore                         ✅ Done — build context exclusions
+├── docker-compose.yml                    ✅ Done — local development orchestration
+├── Dockerfile                            ✅ Done — multi-stage container
 ├── GEMINI.md                             ✅ Done — SOP Section 7 file reference to docs/implementation_plan_v1.1.md
 ├── pyproject.toml                        ✅ Done — added psycopg2-binary dependency
 ├── README.md                             ✅ Done — PostgreSQL & ETL instructions
