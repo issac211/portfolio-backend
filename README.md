@@ -75,7 +75,24 @@ DATABASE_URL="postgresql+psycopg2://<user>:<password>@<host>.neon.tech/<dbname>?
 SECRET_KEY="your-super-secret-crypto-key"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="your-secure-password"
+
+# CORS Allowed Origins
+ALLOWED_ORIGINS="http://localhost:5173,https://myfrontend.com"
 ```
+
+#### CORS Configuration (`ALLOWED_ORIGINS`)
+
+The `ALLOWED_ORIGINS` environment variable configures FastAPI's `CORSMiddleware` to permit authorized frontend domains to execute cross-origin HTTP requests and submit authentication headers (`Authorization: Bearer <token>`).
+
+- **Format:** A comma-separated list of fully qualified URLs (e.g., `http://localhost:5173,https://myfrontend.com`).
+- **Local Fallback:** If `ALLOWED_ORIGINS` is not defined or is empty, the application safely defaults to `["http://localhost:5173"]` for local development.
+- **Production Requirement:** In production environments, set `ALLOWED_ORIGINS` to your exact deployed frontend URL(s).
+
+> [!IMPORTANT]
+> **Why Exact Origin Formatting (No Trailing Slash) is Critical:**
+> 1. **W3C Origin Specification:** The browser's `Origin` request header strictly comprises `<scheme>://<host>[:<port>]` (e.g. `https://myportfolio.com`). It **never** includes a trailing slash or path component. If `ALLOWED_ORIGINS` includes a trailing slash (such as `https://myportfolio.com/`), origin matching fails, and the browser aborts the request due to CORS policy denial.
+> 2. **Credentialed Requests:** Because the API enforces `allow_credentials=True` for authenticated JWT endpoints, wildcard origins (`*`) are forbidden by modern browser security models. Each allowed client must be explicitly declared.
+
 
 ### 3. Database Setup & Migration (PostgreSQL)
 
@@ -145,7 +162,7 @@ docker compose exec backend alembic upgrade head
 docker compose down
 ```
 
-## API Reference & Contract (v1.1)
+## API Reference & Contract (v1.1.1)
 
 FastAPI automatically generates interactive OpenAPI documentation at `/docs` (Swagger UI) and `/redoc`.
 

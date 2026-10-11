@@ -15,20 +15,12 @@ app = FastAPI(
     version=settings.PROJECT_VERSION,
 )
 
-# Define the frontend origins that are allowed to make requests
-origins = [
-    "http://localhost:3000",  # React default port
-    "http://localhost:5173",  # Vite dev server
-    "http://127.0.0.1:5173",  # Vite default port
-    "https://myfrontend.com",  # Production domain
-]
-
-# Configure CORS (CRITICAL for local development with React)
-# Do not use allow_origins=["*"] in real production if you have authentication,
-# but for a static portfolio frontend reading public data, it's acceptable.
+# Configure CORS
+# Reads allowed origins dynamically from ALLOWED_ORIGINS environment variable via settings
+# Falls back to ["http://localhost:5173"] for local development if not set.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows requests from specified origins
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,  # Allows cookies and authentication headers
     allow_methods=["*"],  # Allows all standard HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allows all request headers

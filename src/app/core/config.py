@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Portfolio API"
-    PROJECT_VERSION: str = "1.1.0"
+    PROJECT_VERSION: str = "1.1.1"
     DATABASE_URL: str = "sqlite:///portfolio.db"
 
     @field_validator("DATABASE_URL", mode="after")
@@ -36,6 +36,20 @@ class Settings(BaseSettings):
 
     # NEW: 5 Megabytes (5 * 1024 * 1024 bytes)
     MAX_IMAGE_SIZE_BYTES: int = 5242880
+
+    # --- CORS Settings ---
+    # Comma-separated list of allowed origin URLs (e.g. "http://localhost:5173,https://myfrontend.com")
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        """Convert comma-separated ALLOWED_ORIGINS into a sanitized list of origins."""
+        parsed = [
+            origin.strip().rstrip("/")
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
+        return parsed or ["http://localhost:5173"]
 
     model_config = SettingsConfigDict(env_file=".env")
 
