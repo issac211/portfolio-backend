@@ -36,8 +36,7 @@ def test_upsert_profile_create(admin_client):
     assert data["hero_title"] == "Full Stack Cloud Engineer"
     assert data["availability_status"] == "Available for contract"
     assert (
-        data["short_bio"]
-        == "Crafting resilient microservices and distributed systems."
+        data["short_bio"] == "Crafting resilient microservices and distributed systems."
     )
     assert data["github_url"] == "https://github.com/johndoe"
     assert data["linkedin_url"] == "https://linkedin.com/in/johndoe"

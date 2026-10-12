@@ -51,9 +51,7 @@ class ProjectService:
 
         # 1. Handle Tags (List -> CSV)
         tags_list = data_dict.pop("tags", [])
-        data_dict["tags_csv"] = (
-            ",".join(tags_list) if tags_list else None
-        )
+        data_dict["tags_csv"] = ",".join(tags_list) if tags_list else None
 
         # 2. Handle HttpUrl conversion to string for SQLite
         for field in ["github_url", "live_url", "image_url"]:
@@ -74,9 +72,7 @@ class ProjectService:
 
         return self._map_db_to_schema(new_project)
 
-    def update_project(
-        self, project_id: int, project_data: ProjectUpdate
-    ) -> Project:
+    def update_project(self, project_id: int, project_data: ProjectUpdate) -> Project:
         project = self.get_project_by_id(project_id)
 
         # exclude_unset=True guarantees we only process fields the client actually sent
@@ -85,9 +81,7 @@ class ProjectService:
         # Handle Tags (List -> CSV)
         if "tags" in update_data:
             tags_list = update_data.pop("tags")
-            update_data["tags_csv"] = (
-                ",".join(tags_list) if tags_list else None
-            )
+            update_data["tags_csv"] = ",".join(tags_list) if tags_list else None
 
         # Handle HttpUrl conversion
         for field in ["github_url", "live_url", "image_url"]:

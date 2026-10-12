@@ -78,6 +78,9 @@ ADMIN_PASSWORD="your-secure-password"
 
 # CORS Allowed Origins
 ALLOWED_ORIGINS="http://localhost:5173,https://myfrontend.com"
+
+# Cloud Storage (Production)
+CLOUDINARY_URL="cloudinary://<api_key>:<api_secret>@<cloud_name>"
 ```
 
 #### CORS Configuration (`ALLOWED_ORIGINS`)
@@ -92,6 +95,19 @@ The `ALLOWED_ORIGINS` environment variable configures FastAPI's `CORSMiddleware`
 > **Why Exact Origin Formatting (No Trailing Slash) is Critical:**
 > 1. **W3C Origin Specification:** The browser's `Origin` request header strictly comprises `<scheme>://<host>[:<port>]` (e.g. `https://myportfolio.com`). It **never** includes a trailing slash or path component. If `ALLOWED_ORIGINS` includes a trailing slash (such as `https://myportfolio.com/`), origin matching fails, and the browser aborts the request due to CORS policy denial.
 > 2. **Credentialed Requests:** Because the API enforces `allow_credentials=True` for authenticated JWT endpoints, wildcard origins (`*`) are forbidden by modern browser security models. Each allowed client must be explicitly declared.
+
+#### Cloud Storage Configuration (`CLOUDINARY_URL`)
+
+The application supports hybrid storage branching dynamically by `ENVIRONMENT`:
+- **Development (`ENVIRONMENT="development"`):** Files are persisted locally to disk in the `uploads/` directory (`MEDIA_ROOT`) and unlinked upon deletion.
+- **Production (`ENVIRONMENT="production"`):** Files are streamed in-memory directly to [Cloudinary](https://cloudinary.com) without writing to host disk, and deletions extract the asset's `public_id` to destroy it from the cloud storage and CDN cache.
+
+**Requirement:** When `ENVIRONMENT="production"`, `CLOUDINARY_URL` is mandatory:
+```env
+CLOUDINARY_URL="cloudinary://<api_key>:<api_secret>@<cloud_name>"
+```
+*(Copy the connection string directly from your Cloudinary Console Dashboard).*
+
 
 
 ### 3. Database Setup & Migration (PostgreSQL)

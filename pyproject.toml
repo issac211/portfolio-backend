@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.19.1",
+    "cloudinary>=1.46.3",
     "fastapi[standard]>=0.139.0",
     "psycopg2-binary>=2.9.13",
     "pydantic-settings>=2.14.2",

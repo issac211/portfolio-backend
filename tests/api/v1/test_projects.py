@@ -103,7 +103,9 @@ def test_delete_project(admin_client):
 
 
 def test_create_project_unauthorized(client):
-    response = client.post("/api/v1/projects/", json={"title": "Hacked", "summary": "Hack"})
+    response = client.post(
+        "/api/v1/projects/", json={"title": "Hacked", "summary": "Hack"}
+    )
     assert response.status_code == 401
 
 

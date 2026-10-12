@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # NEW: 5 Megabytes (5 * 1024 * 1024 bytes)
     MAX_IMAGE_SIZE_BYTES: int = 5242880
 
+    # --- Cloud Storage (Cloudinary - Production) ---
+    CLOUDINARY_URL: str | None = None
+
     # --- CORS Settings ---
     # Comma-separated list of allowed origin URLs (e.g. "http://localhost:5173,https://myfrontend.com")
     ALLOWED_ORIGINS: str = "http://localhost:5173"
