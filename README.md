@@ -178,7 +178,7 @@ docker compose exec backend alembic upgrade head
 docker compose down
 ```
 
-## API Reference & Contract (v1.1.1)
+## API Reference & Contract (v1.2)
 
 FastAPI automatically generates interactive OpenAPI documentation at `/docs` (Swagger UI) and `/redoc`.
 

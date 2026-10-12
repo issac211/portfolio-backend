@@ -1,6 +1,6 @@
 [project]
 name = "backend"
-version = "1.1.1"
+version = "1.2.0"
 description = "Portfolio Backend REST API built with FastAPI, SQLAlchemy 2.0, and PostgreSQL"
 readme = "README.md"
 requires-python = ">=3.14"
