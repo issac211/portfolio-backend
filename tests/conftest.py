@@ -80,13 +80,17 @@ def setup_test_uploads_dir():
     """
     Creates a temporary directory for file uploads during tests.
     Only overrides MEDIA_ROOT. MEDIA_URL stays '/uploads' for consistent API responses.
+    Ensures ENVIRONMENT is set to 'development' so tests use local temporary storage.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Override the physical path
+        # Override the physical path and environment
         original_media_root = settings.MEDIA_ROOT
+        original_environment = settings.ENVIRONMENT
         settings.MEDIA_ROOT = temp_dir
+        settings.ENVIRONMENT = "development"
 
         yield
 
-        # Restore the physical path
+        # Restore the physical path and environment
         settings.MEDIA_ROOT = original_media_root
+        settings.ENVIRONMENT = original_environment

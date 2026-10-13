@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import auth, personal_info, projects
+from app.api.v1 import auth, health, personal_info, projects
 from app.core import settings
 
 # Create uploads directory if it doesn't exist
@@ -33,6 +33,8 @@ app.mount(
 )
 
 # Include the routers
+app.include_router(health.router, prefix="/api/v1")
+app.include_router(health.router)  # Root /health alias for uptime monitors & cloud load balancers
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(personal_info.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")

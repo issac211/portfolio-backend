@@ -8,7 +8,7 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.core import SessionLocal, settings
-from app.services import PersonalInfoService, ProjectService
+from app.services import HealthService, PersonalInfoService, ProjectService
 
 # This tells FastAPI where the client can get the token (for Swagger UI)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -21,6 +21,11 @@ def get_db() -> Generator[Session]:
         yield db
     finally:
         db.close()
+
+
+def get_health_service(db: Session = Depends(get_db)) -> HealthService:
+    """Dependency injection factory for HealthService."""
+    return HealthService(db)
 
 
 def get_project_service(db: Session = Depends(get_db)) -> ProjectService:

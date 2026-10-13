@@ -1,4 +1,5 @@
 from .auth import Token
+from .health import HealthResponse
 from .personal_info import (
     PersonalInfoCreate,
     PersonalInfoResponse,
@@ -7,6 +8,7 @@ from .personal_info import (
 from .projects import ProjectCreate, ProjectResponse, ProjectUpdate
 
 __all__ = [
+    "HealthResponse",
     "PersonalInfoCreate",
     "PersonalInfoResponse",
     "PersonalInfoUpdate",

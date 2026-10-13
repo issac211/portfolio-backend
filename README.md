@@ -198,6 +198,8 @@ FastAPI automatically generates interactive OpenAPI documentation at `/docs` (Sw
 | `DELETE` | `/api/v1/projects/{id}` | Admin (JWT) | Deletes a project and its associated image |
 | `POST` | `/api/v1/projects/{id}/upload-image` | Admin (JWT) | Uploads an image for a project |
 | `DELETE` | `/api/v1/projects/{id}/image` | Admin (JWT) | Resiliently unlinks project image |
+| `GET` | `/api/v1/health` | Public | Lightweight service & database health probe (returns 200 or 503) |
+| `GET` | `/health` | Public | Root alias for cloud load balancers & uptime monitors |
 | `POST` | `/api/v1/auth/login` | Public | Authenticates admin and returns JWT Bearer token |
 
 ### OpenAPI Contract-Driven Synchronization
