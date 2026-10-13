@@ -1,6 +1,6 @@
 services:
   backend:
-    image: portfolio-backend:v1.2
+    image: portfolio-backend:v1.2.1
     build:
       context: .
       dockerfile: Dockerfile
